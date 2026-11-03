@@ -11,9 +11,9 @@
         <item>uk</item>
         <item>zh-CN</item>
     </string-array>
-    <string name="ks_service_title" formatted="false">"Kiosk Satellite Service"</string>
-    <string name="ks_service_channel_help" formatted="false">"Shown while the Kiosk Satellite Service keeps the app running with the screen off or behind another app."</string>
-    <string name="ui_guard_description" formatted="false">"Closes the notification shade and the recents screen whenever they open while Kiosk Mode or Lockdown Mode is protecting the screen. Kiosk Satellite does not read any screen content."</string>
+    <string name="ks_service_title" formatted="false">"BreadBoard Service"</string>
+    <string name="ks_service_channel_help" formatted="false">"Shown while BreadBoard keeps the Apple HomeView running with the screen off or behind another app."</string>
+    <string name="ui_guard_description" formatted="false">"Closes the notification shade and the recents screen whenever they open while Kiosk Mode or Lockdown Mode is protecting the screen. BreadBoard does not read any screen content."</string>
     <string name="ks_service_listening" formatted="false">"listening for a wake word"</string>
     <string name="ks_service_rtsp_audio" formatted="false">"RTSP microphone audio enabled"</string>
     <string name="ks_service_esphome" formatted="false">"serving ESPHome"</string>

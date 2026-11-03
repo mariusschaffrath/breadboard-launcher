@@ -456,7 +456,7 @@ Object normalizeImmichAlbumsSetting(Object value) {
 const startUrl = SettingDef<String>(
   key: 'browser.start_url',
   type: SettingType.string,
-  defaultValue: '',
+  defaultValue: 'http://192.168.178.131:8123/apple-homeview/home?kiosk',
   title: 'Start URL',
   description: 'Page loaded on launch.',
   category: 'Browser',
@@ -900,7 +900,7 @@ const webPopups = SettingDef<bool>(
 const kioskEnabled = SettingDef<bool>(
   key: 'kiosk.enabled',
   type: SettingType.boolean,
-  defaultValue: false,
+  defaultValue: true,
   title: 'Enable kiosk mode',
   description:
       'Lock the tablet into Kiosk Satellite. The menu swipe is replaced '
@@ -1493,10 +1493,10 @@ const launcherMenu = SettingDef<bool>(
 const homeLauncherEnabled = SettingDef<bool>(
   key: 'home.enabled',
   type: SettingType.boolean,
-  defaultValue: false,
+  defaultValue: true,
   title: 'Act as the home screen',
   description:
-      'Register Kiosk Satellite as the device home screen: the kiosk starts '
+      'Register BreadBoard as the device home screen: the launcher starts '
       'at boot and every home press returns to it. Turns itself off and '
       'restores the previous launcher if the app fails to start '
       'repeatedly.',
@@ -8368,7 +8368,7 @@ const vsNativePipeline = SettingDef<bool>(
 const haUrl = SettingDef<String>(
   key: 'ha.url',
   type: SettingType.string,
-  defaultValue: '',
+  defaultValue: 'http://192.168.178.131:8123',
   title: 'Home Assistant base URL',
   description:
       'e.g. https://homeassistant.local:8123, without a dashboard path.',
