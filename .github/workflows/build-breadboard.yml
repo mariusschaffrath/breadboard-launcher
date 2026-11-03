@@ -79,9 +79,4 @@ jobs:
           gh release delete "$TAG" --yes 2>/dev/null || true
           gh release create "$TAG" dist/*.apk \
             --title "BreadBoard Launcher v1.0.0 (Apple HomeView)" \
-            --notes "Custom Apple HomeView Smart Display Launcher for Fire 7 and Home Assistant.
-Features:
-- Branded as BreadBoard (Apple Software 27.2 Leak)
-- Pre-configured Zero-Config for Home Assistant (http://192.168.178.131:8123)
-- Automatic Kiosk and System-Home Launcher enabled
-- Optimized for Fire 7 hardware (armeabi-v7a and arm64-v8a)"
+            --notes "Custom Apple HomeView Smart Display Launcher for Fire 7 and Home Assistant. Features: Branded as BreadBoard (Apple Software 27.2 Leak), Pre-configured Zero-Config for Home Assistant, Fullscreen Kiosk, Optimized for Fire 7 hardware (armeabi-v7a / arm64-v8a)."
