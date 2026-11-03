@@ -1,4 +1,4 @@
-name: breadboard
+name: kiosk_satellite
 description: "Apple HomeView Smart Display Launcher (BreadBoard OS) for Home Assistant."
 publish_to: 'none'
 
