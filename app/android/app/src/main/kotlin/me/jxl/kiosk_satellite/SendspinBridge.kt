@@ -1,6 +1,7 @@
 package me.jxl.kiosk_satellite
 
 import android.content.Context
+import android.os.Build
 import android.net.ConnectivityManager
 import android.net.Network
 import android.os.Handler
