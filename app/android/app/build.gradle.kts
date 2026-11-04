@@ -64,8 +64,8 @@ android {
         applicationId = "me.jxl.kiosk_satellite"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // onnxruntime AAR requires API 24+; also fine for kiosk tablets.
-        minSdk = maxOf(24, flutter.minSdkVersion)
+        // Minimum SDK set to 21 (Android 5.0+) for Fire 7 5th gen (API 22) compatibility
+        minSdk = 21
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

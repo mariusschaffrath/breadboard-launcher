@@ -222,12 +222,14 @@ class DeviceDetails(
     }
 
     init {
-        try {
-            (context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager)
-                .registerDefaultNetworkCallback(networkCallback)
-        } catch (e: Exception) {
-            // Too many callbacks registered on this device, or no such
-            // service: network uptime stays null rather than wrong.
+        if (Build.VERSION.SDK_INT >= 24) {
+            try {
+                (context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager)
+                    .registerDefaultNetworkCallback(networkCallback)
+            } catch (e: Throwable) {
+                // Too many callbacks registered on this device, or no such
+                // service: network uptime stays null rather than wrong.
+            }
         }
         try {
             val filter = IntentFilter().apply {
@@ -335,11 +337,13 @@ class DeviceDetails(
             }
         }
         profileProxies.clear()
-        try {
-            (context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager)
-                .unregisterNetworkCallback(networkCallback)
-        } catch (e: Exception) {
-            // Never registered; nothing to undo.
+        if (Build.VERSION.SDK_INT >= 24) {
+            try {
+                (context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager)
+                    .unregisterNetworkCallback(networkCallback)
+            } catch (e: Throwable) {
+                // Never registered; nothing to undo.
+            }
         }
     }
 

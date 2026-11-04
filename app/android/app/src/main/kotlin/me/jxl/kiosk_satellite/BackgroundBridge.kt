@@ -733,17 +733,19 @@ class BackgroundBridge(
             IntentFilter(DevicePolicyManager.ACTION_DEVICE_OWNER_CHANGED),
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
-        try {
-            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE)
-                as ConnectivityManager
-            // Read BEFORE registering: this is what tells the registration
-            // replay apart from a genuine network arrival (offline boot).
-            expectInitialNetworkReplay = cm.activeNetwork != null
-            cm.registerDefaultNetworkCallback(networkCallback)
-        } catch (e: Exception) {
-            // Callback limit reached or no such service: network events
-            // simply never fire and every consumer keeps its own timers.
-            android.util.Log.w("kiosk_satellite", "network callback failed", e)
+        if (Build.VERSION.SDK_INT >= 24) {
+            try {
+                val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE)
+                    as ConnectivityManager
+                // Read BEFORE registering: this is what tells the registration
+                // replay apart from a genuine network arrival (offline boot).
+                expectInitialNetworkReplay = cm.activeNetwork != null
+                cm.registerDefaultNetworkCallback(networkCallback)
+            } catch (e: Throwable) {
+                // Callback limit reached or no such service: network events
+                // simply never fire and every consumer keeps its own timers.
+                android.util.Log.w("kiosk_satellite", "network callback failed", e)
+            }
         }
     }
 
@@ -1117,6 +1119,9 @@ class BackgroundBridge(
      * the crash journal says why the next start finds no clean exit.
      */
     private fun rebootDevice(): Map<String, Any?> {
+        if (Build.VERSION.SDK_INT < 24) {
+            return mapOf("ok" to false, "error" to "Device reboot requires Android 7.0+ (API 24)")
+        }
         val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         if (!dpm.isDeviceOwnerApp(context.packageName)) {
             return mapOf("ok" to false, "error" to "Kiosk Satellite is not the device owner")

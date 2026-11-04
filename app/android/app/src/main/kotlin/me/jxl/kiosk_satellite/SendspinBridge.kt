@@ -143,11 +143,13 @@ class SendspinBridge(
                 }
             }
         }
-        try {
-            cm.registerDefaultNetworkCallback(cb)
-            networkCallback = cb
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to register network callback", e)
+        if (Build.VERSION.SDK_INT >= 24) {
+            try {
+                cm.registerDefaultNetworkCallback(cb)
+                networkCallback = cb
+            } catch (e: Throwable) {
+                Log.w(TAG, "Failed to register network callback", e)
+            }
         }
     }
 

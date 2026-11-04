@@ -7,6 +7,11 @@ bool _inited = false;
 /// must funnel through this guard.
 void ensureOrtInit() {
   if (_inited) return;
-  OrtEnv.instance.init();
-  _inited = true;
+  try {
+    OrtEnv.instance.init();
+    _inited = true;
+  } catch (e) {
+    // Graceful fallback on older Android versions (API < 24) where ORT cannot link
+    print('OrtEnv.instance.init() failed on legacy device: $e');
+  }
 }
