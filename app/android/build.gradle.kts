@@ -19,6 +19,7 @@ allprojects {
                 "androidx.camera:camera-lifecycle:1.5.1",
             )
         }
+        exclude(group = "androidx.profileinstaller", module = "profileinstaller")
     }
 }
 
@@ -43,6 +44,15 @@ subprojects {
             val current = android.compileSdkVersion?.substringAfter("-")?.toIntOrNull()
             if (current == null || current < 36) {
                 android.compileSdkVersion(36)
+            }
+            try {
+                android.defaultConfig.minSdkVersion?.let {
+                    if (it.apiLevel > 21) {
+                        android.defaultConfig.minSdkVersion(21)
+                    }
+                }
+            } catch (e: Throwable) {
+                // Ignore if method not supported on this extension
             }
             // Older plugins (e.g. tflite_flutter 0.12.1) pin Java to 11 while
             // their Kotlin follows the JDK we build with, and AGP 9 rejects the
