@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
@@ -1003,38 +1004,19 @@ class SoundPlayer(context: Context, messenger: BinaryMessenger) {
      * because the reroute that caused it can re-enumerate device ids, which
      * would make the originally pinned AudioDeviceInfo stale.
      */
-    private fun enforceRouting(id: String, router: android.media.AudioRouting) {
+    private fun enforceRouting(id: String, router: Any) {
         if (Build.VERSION.SDK_INT < 28) return
-        router.addOnRoutingChangedListener(
-            android.media.AudioRouting.OnRoutingChangedListener { r ->
-                val live = players.containsKey(id) ||
-                    synchronized(tracks) { tracks.containsKey(id) }
-                if (!live) return@OnRoutingChangedListener
-                val selected = AudioRouting.currentOutput()
-                    ?: return@OnRoutingChangedListener
-                val routed = r.routedDevice ?: return@OnRoutingChangedListener
-                if (routed.type == selected.type && routed.address == selected.address) {
-                    return@OnRoutingChangedListener
-                }
-                val tries = routingReasserts[id] ?: 0
-                if (tries >= MAX_ROUTING_REASSERTS) return@OnRoutingChangedListener
-                routingReasserts[id] = tries + 1
-                Log.w(
-                    TAG,
-                    "sound $id rerouted to ${routed.productName} (type ${routed.type}); " +
-                        "re-pinning to ${selected.productName} (type ${selected.type}) " +
-                        "[${tries + 1}/$MAX_ROUTING_REASSERTS]",
-                )
-                try {
-                    if (!r.setPreferredDevice(selected)) {
-                        Log.w(TAG, "re-pin rejected for $id (setPreferredDevice=false)")
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "re-pin failed for $id: ${e.message}")
-                }
-            },
-            mainHandler,
-        )
+        if (router is android.media.AudioRouting) {
+            SoundPlayerApi28Helper.enforceRouting(
+                id,
+                router,
+                players,
+                tracks,
+                routingReasserts,
+                MAX_ROUTING_REASSERTS,
+                mainHandler,
+            )
+        }
     }
 
     /**
@@ -1107,5 +1089,47 @@ class SoundPlayer(context: Context, messenger: BinaryMessenger) {
         }
         try { exo?.release() } catch (_: Exception) {}
         Log.d(TAG, "sound finish $id: main=${(System.nanoTime() - beganNs) / 1_000_000}ms error=$error")
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.P)
+private object SoundPlayerApi28Helper {
+    fun enforceRouting(
+        id: String,
+        router: android.media.AudioRouting,
+        players: Map<String, *>,
+        tracks: Map<String, *>,
+        routingReasserts: MutableMap<String, Int>,
+        maxReasserts: Int,
+        handler: Handler,
+    ) {
+        router.addOnRoutingChangedListener(
+            android.media.AudioRouting.OnRoutingChangedListener { r ->
+                val live = players.containsKey(id) || synchronized(tracks) { tracks.containsKey(id) }
+                if (!live) return@OnRoutingChangedListener
+                val selected = AudioRouting.currentOutput() ?: return@OnRoutingChangedListener
+                val routed = r.routedDevice ?: return@OnRoutingChangedListener
+                if (routed.type == selected.type && routed.address == selected.address) {
+                    return@OnRoutingChangedListener
+                }
+                val tries = routingReasserts[id] ?: 0
+                if (tries >= maxReasserts) return@OnRoutingChangedListener
+                routingReasserts[id] = tries + 1
+                Log.w(
+                    "SoundPlayer",
+                    "sound $id rerouted to ${routed.productName} (type ${routed.type}); " +
+                        "re-pinning to ${selected.productName} (type ${selected.type}) " +
+                        "[${tries + 1}/$maxReasserts]",
+                )
+                try {
+                    if (!r.setPreferredDevice(selected)) {
+                        Log.w("SoundPlayer", "re-pin rejected for $id (setPreferredDevice=false)")
+                    }
+                } catch (e: Exception) {
+                    Log.w("SoundPlayer", "re-pin failed for $id: ${e.message}")
+                }
+            },
+            handler,
+        )
     }
 }

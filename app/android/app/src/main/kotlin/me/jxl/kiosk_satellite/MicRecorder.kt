@@ -83,9 +83,9 @@ class MicRecorder(context: Context, messenger: BinaryMessenger) : EventChannel.S
     companion object {
         /** The input types a channel pick applies to. */
         private val USB_INPUT_TYPES = setOf(
-            AudioDeviceInfo.TYPE_USB_DEVICE,
-            AudioDeviceInfo.TYPE_USB_HEADSET,
-            AudioDeviceInfo.TYPE_USB_ACCESSORY,
+            11, // AudioDeviceInfo.TYPE_USB_DEVICE
+            22, // AudioDeviceInfo.TYPE_USB_HEADSET
+            12, // AudioDeviceInfo.TYPE_USB_ACCESSORY
         )
 
         const val CHANNEL = "kiosk_satellite/mic"
@@ -682,9 +682,10 @@ class MicRecorder(context: Context, messenger: BinaryMessenger) : EventChannel.S
      * opened anyway and never delivers a frame.
      */
     private fun stallHint(rec: AudioRecord): String {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return ""
         val device = rec.routedDevice ?: rec.preferredDevice ?: return ""
-        val usb = device.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
-            device.type == AudioDeviceInfo.TYPE_USB_HEADSET
+        val usb = device.type == 11 /* AudioDeviceInfo.TYPE_USB_DEVICE */ ||
+            device.type == 22 /* AudioDeviceInfo.TYPE_USB_HEADSET */
         return " from ${device.productName}" + if (usb) {
             " (a USB microphone that never delivers usually means the ROM's USB audio " +
                 "configuration opens it in a format it cannot record)"
@@ -771,9 +772,11 @@ class MicRecorder(context: Context, messenger: BinaryMessenger) : EventChannel.S
             Log.w(TAG, "selected mic not matched ($selector); automatic routing")
             return
         }
-        rec.preferredDevice = device
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            rec.preferredDevice = device
+        }
         Log.i(TAG, "capture pinned to ${device.productName} (type ${device.type}, ${device.address})")
-        val bluetooth = device.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+        val bluetooth = device.type == 7 /* AudioDeviceInfo.TYPE_BLUETOOTH_SCO */ ||
             (Build.VERSION.SDK_INT >= 31 && device.type == 26 /* TYPE_BLE_HEADSET */)
         if (!bluetooth) return
         val am = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager

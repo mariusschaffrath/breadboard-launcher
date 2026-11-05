@@ -7,10 +7,12 @@ import android.media.AudioManager
 import android.media.AudioRouting
 import android.media.AudioTimestamp
 import android.media.AudioTrack
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
+import androidx.annotation.RequiresApi
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -76,12 +78,7 @@ class NativeAudioOutput {
 
     /** The device the track plays to, 0 until Android reports one. */
     private var routedDeviceId = 0
-    private val routingListener = AudioRouting.OnRoutingChangedListener { router ->
-        synchronized(lock) {
-            val t = track
-            if (t != null && router === t) updateRouteLocked(t)
-        }
-    }
+    private var routingListenerToken: Any? = null
 
     @Volatile private var mediaGain = 1f
     @Volatile private var duckGain = 1f
@@ -184,7 +181,14 @@ class NativeAudioOutput {
             newTrack.play()
             track = newTrack
             // Headphones can connect or drop while music plays.
-            newTrack.addOnRoutingChangedListener(routingListener, Handler(Looper.getMainLooper()))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                routingListenerToken = NativeAudioRoutingHelper.addRoutingListener(newTrack) {
+                    synchronized(lock) {
+                        val t = track
+                        if (t != null) updateRouteLocked(t)
+                    }
+                }
+            }
             updateRouteLocked(newTrack)
             // The canceller's reference follows this output's own clock,
             // the one rooms are synced by.
@@ -464,9 +468,9 @@ class NativeAudioOutput {
         if (device.id == routedDeviceId) return
         val known = routedDeviceId != 0
         routedDeviceId = device.id
-        presentationClock.bluetooth = device.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
-            device.type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
-            device.type == AudioDeviceInfo.TYPE_BLE_SPEAKER
+        presentationClock.bluetooth = device.type == 8 /* AudioDeviceInfo.TYPE_BLUETOOTH_A2DP */ ||
+            device.type == 26 /* AudioDeviceInfo.TYPE_BLE_HEADSET */ ||
+            device.type == 27 /* AudioDeviceInfo.TYPE_BLE_SPEAKER */
         // The first report for a track only names where it started.
         if (!known) return
         sinkLatencyUs = measureSinkLatencyUs(t, t.bufferSizeInFrames * bytesPerFrame, bytesPerFrame)
@@ -515,12 +519,34 @@ class NativeAudioOutput {
     private fun releaseLocked() {
         val t = track ?: return
         track = null
-        runCatching { t.removeOnRoutingChangedListener(routingListener) }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            routingListenerToken?.let {
+                NativeAudioRoutingHelper.removeRoutingListener(t, it)
+                routingListenerToken = null
+            }
+        }
         tap?.close()
         tap = null
         runCatching { t.pause() }
         runCatching { t.flush() }
         runCatching { t.stop() }
         runCatching { t.release() }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.N)
+private object NativeAudioRoutingHelper {
+    fun addRoutingListener(track: AudioTrack, onRouteChanged: () -> Unit): Any {
+        val listener = AudioRouting.OnRoutingChangedListener { router ->
+            if (router === track) onRouteChanged()
+        }
+        track.addOnRoutingChangedListener(listener, Handler(Looper.getMainLooper()))
+        return listener
+    }
+
+    fun removeRoutingListener(track: AudioTrack, listener: Any) {
+        if (listener is AudioRouting.OnRoutingChangedListener) {
+            runCatching { track.removeOnRoutingChangedListener(listener) }
+        }
     }
 }

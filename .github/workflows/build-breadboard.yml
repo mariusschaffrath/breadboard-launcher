@@ -47,36 +47,91 @@ jobs:
           python3 -c "
           import os, glob, zipfile, struct, hashlib, zlib, subprocess
 
-          apks = glob.glob('app/build/app/outputs/flutter-apk/*.apk')
-          print('Found APKs to check:', apks)
+          def patch_dex_data(data):
+              if b'Lio/flutter/plugin/localization/LocalizationPlugin;' not in data:
+                  return False
+              string_ids_size, string_ids_off = struct.unpack_from('<II', data, 56)
+              type_ids_size, type_ids_off = struct.unpack_from('<II', data, 64)
+              proto_ids_size, proto_ids_off = struct.unpack_from('<II', data, 72)
+              method_ids_size, method_ids_off = struct.unpack_from('<II', data, 88)
+              class_defs_size, class_defs_off = struct.unpack_from('<II', data, 96)
 
-          for apk_path in apks:
-              if 'signed' in apk_path.lower():
-                  continue
+              def read_uleb128(p):
+                  val = 0; shift = 0
+                  while True:
+                      b = data[p]; p += 1
+                      val |= (b & 0x7f) << shift
+                      if not (b & 0x80): break
+                      shift += 7
+                  return val, p
+
+              def get_str(idx):
+                  off = struct.unpack_from('<I', data, string_ids_off + idx * 4)[0]
+                  l, p = read_uleb128(off)
+                  return data[p:p+l].decode('latin1', errors='replace')
+
+              def get_type(idx):
+                  s_idx = struct.unpack_from('<I', data, type_ids_off + idx * 4)[0]
+                  return get_str(s_idx)
+
+              def get_method(idx):
+                  c_idx, p_idx, n_idx = struct.unpack_from('<HHI', data, method_ids_off + idx * 8)
+                  return get_str(n_idx)
+
               patched = False
-              tmp_apk = apk_path + '.tmp'
-              with zipfile.ZipFile(apk_path, 'r') as zin, zipfile.ZipFile(tmp_apk, 'w', zipfile.ZIP_DEFLATED) as zout:
-                  for item in zin.infolist():
-                      if item.filename.startswith('META-INF/'):
-                          continue
-                      data = bytearray(zin.read(item.filename))
-                      if item.filename.endswith('.dex') and b'Lio/flutter/plugin/localization/LocalizationPlugin;' in data:
-                          pos = data.find(b'Lio/flutter/plugin/localization/LocalizationPlugin;')
-                          code_needle = bytes.fromhex('220038087010731c')
-                          cpos = data.find(code_needle)
-                          if cpos != -1:
-                              print(f'Patching LocalizationPlugin in {item.filename} of {apk_path} at offset {hex(cpos)}')
+              for i in range(class_defs_size):
+                  c_idx = struct.unpack_from('<I', data, class_defs_off + i * 32)[0]
+                  if get_type(c_idx) == 'Lio/flutter/plugin/localization/LocalizationPlugin;':
+                      cdata_off = struct.unpack_from('<I', data, class_defs_off + i * 32 + 24)[0]
+                      p = cdata_off
+                      sf, p = read_uleb128(p)
+                      inf, p = read_uleb128(p)
+                      dm, p = read_uleb128(p)
+                      vm, p = read_uleb128(p)
+                      for _ in range(sf + inf):
+                          _, p = read_uleb128(p); _, p = read_uleb128(p)
+                      m_idx = 0
+                      for _ in range(dm):
+                          d, p = read_uleb128(p); m_idx += d; _, p = read_uleb128(p); _, p = read_uleb128(p)
+                      m_idx = 0
+                      for _ in range(vm):
+                          d, p = read_uleb128(p); m_idx += d; _, p = read_uleb128(p); code_off, p = read_uleb128(p)
+                          name = get_method(m_idx)
+                          if name == 'sendLocalesToFlutter':
+                              insns_size = struct.unpack_from('<I', data, code_off + 12)[0]
+                              cpos = code_off + 16
+                              # Dalvik return-void opcode: 0x0e 0x00
                               data[cpos] = 0x0e
                               data[cpos + 1] = 0x00
-                              for k in range(2, 97 * 2):
+                              for k in range(2, insns_size * 2):
                                   data[cpos + k] = 0x00
                               sha1 = hashlib.sha1(data[32:]).digest()
                               data[12:32] = sha1
                               adler = zlib.adler32(data[12:]) & 0xffffffff
                               data[8:12] = struct.pack('<I', adler)
                               patched = True
+                              print(f'Successfully patched sendLocalesToFlutter in DEX at code_off={hex(code_off)}')
+              return patched
+
+          apks = glob.glob('app/build/app/outputs/flutter-apk/*.apk')
+          print('Found APKs to check:', apks)
+
+          for apk_path in apks:
+              if 'signed' in apk_path.lower():
+                  continue
+              apk_patched = False
+              tmp_apk = apk_path + '.tmp'
+              with zipfile.ZipFile(apk_path, 'r') as zin, zipfile.ZipFile(tmp_apk, 'w', zipfile.ZIP_DEFLATED) as zout:
+                  for item in zin.infolist():
+                      if item.filename.startswith('META-INF/'):
+                          continue
+                      data = bytearray(zin.read(item.filename))
+                      if item.filename.endswith('.dex'):
+                          if patch_dex_data(data):
+                              print(f'Patched {item.filename} in {apk_path}')
+                              apk_patched = True
                       zout.writestr(item, data)
-              if patched:
+              if apk_patched:
                   os.replace(tmp_apk, apk_path)
                   print('Re-signing patched APK:', apk_path)
                   subprocess.run(['java', '-jar', '/tmp/uber-apk-signer.jar', '--apks', apk_path, '--overwrite'], check=True)

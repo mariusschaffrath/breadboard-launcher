@@ -140,3 +140,52 @@ Wake-word support builds on [vsWakeWord](https://github.com/jxlarrea/voice-satel
 Thank you to the package authors whose work makes Kiosk Satellite possible.
 
 </details>
+
+---
+
+# Apple HomeView BreadBoard Launcher – Fire 7 Compatibility Architecture
+
+## 1. Overview & Purpose
+* **Project Name:** BreadBoard Launcher (`me.jxl.kiosk_satellite` rebranded as Apple HomeView BreadBoard)
+* **Target Hardware:** Amazon Fire 7 (5th Gen, 2015, model `KFFOWI`, codename `ford`, serial `G000KL0265240H5P`)
+* **OS / Runtime:** Fire OS 5.1.1 (Android 5.1 Lollipop MR1, API Level 22, 32-bit `armeabi-v7a`, 1 GB RAM)
+* **Goal:** A dedicated fullscreen kiosk launcher that automatically launches and displays the local Home Assistant PebbleUI dashboard (`apple-homeview` / `homeview`), fully hardened for Fire OS 5.1 hardware without crashes.
+
+```mermaid
+flowchart TD
+    A["GitHub Actions CI Runner (Ubuntu 24)"] -->|Flutter 3.44.6 Build| B["Release APK (split armeabi-v7a)"]
+    B -->|DEX Symbol Resolution| C["Post-Build DEX Bytecode Patcher"]
+    C -->|Patch sendLocalesToFlutter: return-void| D["Re-signed APK (uber-apk-signer v1.3.0)"]
+    D -->|GitHub Release & Artifacts| E["BreadBoard-armeabi-v7a.apk"]
+    E -->|ADB Install via USB/WiFi| F["Amazon Fire 7 (Fire OS 5.1.1 / API 22)"]
+    F -->|attachBaseContext| G["MultiDex 2.0.1 Support Library"]
+    F -->|API 22 Guarded Calls| H["AudioRouting & NativeAudioOutput Shims"]
+    H -->|Zero Crash Launch| I["Apple HomeView PebbleUI Kiosk Display"]
+```
+
+## 2. Execution Log & Implementation
+1. **Dynamic DEX Bytecode Patcher (`.github/workflows/build-breadboard.yml`):**
+   * *Problem:* Flutter Engine 3.44.6 calls `Configuration.getLocales()` in `LocalizationPlugin.sendLocalesToFlutter`. This method was added in API 24 (Android 7.0) and crashes with `NoSuchMethodError` on API 22. Hardcoded byte string search failed because DEX type and method indices shift whenever any code or dependency is modified.
+   * *Fix:* Implemented a deterministic DEX parser in Python that resolves `Lio/flutter/plugin/localization/LocalizationPlugin;` from the class definition table and finds the virtual method `sendLocalesToFlutter` by method ID name. Replaces the entry instruction with `return-void` (`0x0e 0x00`) with zero-padding and recalculates SHA1 and Adler32 checksums.
+2. **MultiDex Integration (`build.gradle.kts` & `KioskApplication.kt`):**
+   * *Problem:* Android 5.1 ART with multi-DEX split packages requires explicit multidex installation when classes span across secondary DEX files (`classes2.dex`).
+   * *Fix:* Added `androidx.multidex:multidex:2.0.1` and `multiDexEnabled = true`. In `KioskApplication.kt`, implemented `attachBaseContext` calling `MultiDex.install(this)`.
+3. **Audio Framework API 22 Shims (`AudioRouting.kt`, `NativeAudioOutput.kt`, `SoundPlayer.kt`, `MicRecorder.kt`):**
+   * *`AudioRouting.kt`:* Extracted `AudioDeviceCallback` and `am.registerAudioDeviceCallback` into an `@RequiresApi(Build.VERSION_CODES.M)` helper `AudioRoutingApi23Helper`. Replaced runtime `AudioDeviceInfo.TYPE_*` enum references with raw integer constants.
+   * *`NativeAudioOutput.kt`:* Removed direct field instantiation of `AudioRouting.OnRoutingChangedListener` (added in API 24). Extracted listener registration into `NativeAudioRoutingHelper` and guarded behind `Build.VERSION.SDK_INT >= 24`.
+   * *`SoundPlayer.kt`:* Moved `enforceRouting` with `android.media.AudioRouting` into `SoundPlayerApi28Helper` and generalized signature to prevent Dalvik class verification errors on API 22.
+   * *`MicRecorder.kt`:* Guarded `rec.preferredDevice` and `rec.routedDevice` behind `Build.VERSION.SDK_INT >= Build.VERSION_CODES.M`.
+
+## 3. Configuration & Technical Parameters
+* **Application ID:** `me.jxl.kiosk_satellite`
+* **Target SDK:** 36 | **Compile SDK:** 36 | **Minimum SDK:** 21 (Android 5.0+)
+* **ABI Target:** `armeabi-v7a` (32-bit ARM for Fire 7)
+* **Home Assistant Endpoint:** `http://192.168.178.131:8123/dashboard-pebble/marius`
+* **Signing:** Release debug-fallback signed with v1/v2/v3 signatures via `uber-apk-signer`.
+
+## 4. Maintenance & Verification
+* **Trigger CI Build:** `git push origin main` triggers workflow `.github/workflows/build-breadboard.yml`.
+* **Download APK:** `gh release download v1.0.0-breadboard -p "BreadBoard-armeabi-v7a.apk" -D /tmp/ --clobber`
+* **Install to Fire 7:** `adb -s G000KL0265240H5P install -r /tmp/BreadBoard-armeabi-v7a.apk`
+* **Launch & Verify:** `adb -s G000KL0265240H5P shell am start -n me.jxl.kiosk_satellite/.MainActivity`
+

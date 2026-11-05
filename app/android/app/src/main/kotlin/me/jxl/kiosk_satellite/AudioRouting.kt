@@ -3,7 +3,9 @@ package me.jxl.kiosk_satellite
 import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 
@@ -54,8 +56,58 @@ object AudioRouting {
      * type. Null (automatic, or nothing matches) leaves routing to Android.
      */
     fun resolve(selector: String?, source: Boolean): AudioDeviceInfo? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return null
+        val ctx = appContext ?: return null
+        return AudioRoutingApi23Helper.resolve(ctx, selector, source)
+    }
+
+    /** The selectable devices of one direction, for the settings dropdowns. */
+    fun list(source: Boolean): List<Map<String, Any>> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return emptyList()
+        val ctx = appContext ?: return emptyList()
+        return AudioRoutingApi23Helper.list(ctx, source)
+    }
+
+    /** Internal/virtual routes nobody would pick from a settings dropdown. */
+    fun selectable(type: Int, source: Boolean): Boolean = when (type) {
+        18, // AudioDeviceInfo.TYPE_TELEPHONY
+        16, // AudioDeviceInfo.TYPE_FM_TUNER
+        17, // AudioDeviceInfo.TYPE_TV_TUNER
+        25, // AudioDeviceInfo.TYPE_REMOTE_SUBMIX
+        24, // TYPE_BUILTIN_SPEAKER_SAFE: the notification duck path, not a choice
+        -> false
+        else -> true
+    }
+
+    /** True while MicRecorder owns the communication device (a Bluetooth
+     *  mic is selected, so its SCO link is up for the life of capture).
+     *  SoundPlayer consults this before tearing down a link it brought up
+     *  for a call-route sound - never the mic's. */
+    @Volatile var micHoldsCommDevice = false
+}
+
+@RequiresApi(Build.VERSION_CODES.M)
+private object AudioRoutingApi23Helper {
+    fun registerCallback(context: Context, channel: MethodChannel) {
+        val am = context.applicationContext
+            .getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        am.registerAudioDeviceCallback(
+            object : android.media.AudioDeviceCallback() {
+                override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) {
+                    channel.invokeMethod("devicesChanged", null)
+                }
+
+                override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) {
+                    channel.invokeMethod("devicesChanged", null)
+                }
+            },
+            android.os.Handler(android.os.Looper.getMainLooper()),
+        )
+    }
+
+    fun resolve(context: Context, selector: String?, source: Boolean): AudioDeviceInfo? {
         if (selector.isNullOrBlank()) return null
-        val am = audioManager() ?: return null
+        val am = context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return null
         val parts = selector.split('|')
         val type = parts.getOrNull(0)?.toIntOrNull() ?: return null
         val address = parts.getOrNull(1) ?: ""
@@ -68,15 +120,12 @@ object AudioRouting {
             ?: devices.firstOrNull { it.type == type }
     }
 
-    /** The selectable devices of one direction, for the settings dropdowns. */
-    fun list(source: Boolean): List<Map<String, Any>> {
-        val am = audioManager() ?: return emptyList()
+    fun list(context: Context, source: Boolean): List<Map<String, Any>> {
+        val am = context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return emptyList()
         val devices = am.getDevices(
             if (source) AudioManager.GET_DEVICES_INPUTS else AudioManager.GET_DEVICES_OUTPUTS,
         )
-        val selectableDevices = devices.filter { selectable(it.type, source) }
-        // Channel count per selector, maxed across a device's profiles (they
-        // can disagree), for the capture channel picker; 0 = unreported.
+        val selectableDevices = devices.filter { AudioRouting.selectable(it.type, source) }
         val channelCounts = selectableDevices
             .groupBy { "${it.type}|${it.address}|${it.productName}" }
             .mapValues { (_, ds) -> ds.maxOf { d -> d.channelCounts.maxOrNull() ?: 0 } }
@@ -84,11 +133,7 @@ object AudioRouting {
             .map {
                 Triple("${it.type}|${it.address}|${it.productName}", label(it), it)
             }
-            // The same physical device can expose several profiles; keep one
-            // row per selector so the dropdown stays readable.
             .distinctBy { it.first }
-        // Twin devices of one kind (a tablet's bottom and back mics) would
-        // read as identical rows; the address is what tells them apart.
         val dupes = rows.groupingBy { it.second }.eachCount()
         return rows.map { (selector, label, device) ->
             val name =
@@ -106,24 +151,7 @@ object AudioRouting {
         }
     }
 
-    /** Internal/virtual routes nobody would pick from a settings dropdown. */
-    private fun selectable(type: Int, source: Boolean): Boolean = when (type) {
-        AudioDeviceInfo.TYPE_TELEPHONY,
-        AudioDeviceInfo.TYPE_FM_TUNER,
-        AudioDeviceInfo.TYPE_TV_TUNER,
-        AudioDeviceInfo.TYPE_REMOTE_SUBMIX,
-        24, // TYPE_BUILTIN_SPEAKER_SAFE: the notification duck path, not a choice
-        -> false
-        else -> true
-    }
-
-    /** True while MicRecorder owns the communication device (a Bluetooth
-     *  mic is selected, so its SCO link is up for the life of capture).
-     *  SoundPlayer consults this before tearing down a link it brought up
-     *  for a call-route sound - never the mic's. */
-    @Volatile var micHoldsCommDevice = false
-
-    private fun label(device: AudioDeviceInfo): String {
+    fun label(device: AudioDeviceInfo): String {
         val product = device.productName.toString().trim()
         return when (device.type) {
             AudioDeviceInfo.TYPE_BUILTIN_MIC -> "Built-in microphone"
@@ -189,20 +217,9 @@ class AudioRoutingBridge(context: Context, messenger: BinaryMessenger) {
                 else -> result.notImplemented()
             }
         }
-        val am = context.applicationContext
-            .getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        am.registerAudioDeviceCallback(
-            object : android.media.AudioDeviceCallback() {
-                override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) {
-                    channel.invokeMethod("devicesChanged", null)
-                }
-
-                override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) {
-                    channel.invokeMethod("devicesChanged", null)
-                }
-            },
-            android.os.Handler(android.os.Looper.getMainLooper()),
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            AudioRoutingApi23Helper.registerCallback(context, channel)
+        }
         // The echo canceller's lines and Automatic's verdict reach the app
         // on this channel, which lives as long as the app: the capture's own
         // stream is already closed when its canceller stops.
