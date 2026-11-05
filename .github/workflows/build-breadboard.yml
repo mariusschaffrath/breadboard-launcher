@@ -35,6 +35,49 @@ jobs:
         run: |
           flutter pub get
 
+      - name: Patch Flutter Embedding Jar for Android 5.1 Compatibility
+        working-directory: app
+        run: |
+          cd android
+          ./gradlew :app:dependencies || true
+          cd ..
+          python3 -c "
+          import os, zipfile, tempfile, shutil
+
+          target = bytes.fromhex('bb002e59b700304d2bb6003d4e2db60043360403360515051504a2001a2d1505b600493a062c1906b9006d020057840501a7ffe52ab400162cb6008eb1')
+          replacement = bytes.fromhex('bb002e59b700304d2ab400162cb6008eb1' + '00' * 44)
+
+          gradle_cache = os.path.expanduser('~/.gradle/caches')
+          patched_count = 0
+          for root, dirs, files in os.walk(gradle_cache):
+              for f in files:
+                  if f.startswith('flutter_embedding_release') and f.endswith('.jar'):
+                      p = os.path.join(root, f)
+                      try:
+                          with zipfile.ZipFile(p, 'r') as zin:
+                              if 'io/flutter/plugin/localization/LocalizationPlugin.class' not in zin.namelist():
+                                  continue
+                              raw = zin.read('io/flutter/plugin/localization/LocalizationPlugin.class')
+                              if target not in raw:
+                                  print('Target already patched or not present in:', p)
+                                  continue
+                              patched_raw = raw.replace(target, replacement, 1)
+                              
+                              tmp = tempfile.mktemp(suffix='.jar')
+                              with zipfile.ZipFile(tmp, 'w') as zout:
+                                  for item in zin.infolist():
+                                      if item.filename == 'io/flutter/plugin/localization/LocalizationPlugin.class':
+                                          zout.writestr(item, patched_raw)
+                                      else:
+                                          zout.writestr(item, zin.read(item.filename))
+                              shutil.move(tmp, p)
+                              patched_count += 1
+                              print('Successfully patched flutter embedding jar for Android 5.1:', p)
+                      except Exception as e:
+                          print('Error inspecting jar:', p, e)
+          print(f'Total flutter embedding jars patched: {patched_count}')
+          "
+
       - name: Build Release APKs (Split per ABI)
         working-directory: app
         run: |
