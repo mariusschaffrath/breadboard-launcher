@@ -1,8 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <uses-sdk
-        android:minSdkVersion="21"
-        android:targetSdkVersion="34"
         tools:overrideLibrary="com.microsoft.onnxruntime, com.google.mediapipe.tasks.vision, com.google.ai.edge.litert, io.flutter.plugins.imagepicker, androidx.profileinstaller, androidx.navigationevent, com.google.android.datatransport, com.google.mlkit, com.pichillilorenzo.flutter_inappwebview_android" />
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
