@@ -277,3 +277,8 @@ tasks.matching { it.name.startsWith("package") && it.name.endsWith("UnitTestForU
     val variant = name.removePrefix("package").removeSuffix("UnitTestForUnitTest")
     dependsOn("copyFlutterAssets$variant")
 }
+
+// Disable Flutter's minimum SDK validation task for Android 5.0/5.1 compatibility
+tasks.matching { it.name.contains("MinSdkCheck") }.configureEach {
+    enabled = false
+}
