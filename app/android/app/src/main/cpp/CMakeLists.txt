@@ -5,6 +5,9 @@
 cmake_minimum_required(VERSION 3.22)
 project(kiosk_satellite_native LANGUAGES C CXX ASM)
 
+# Legacy Android (API < 24) compatibility shims for Bionic (e.g. getifaddrs / freeifaddrs)
+include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/compat)
+
 include(FetchContent)
 
 # v0.7.0
@@ -23,6 +26,10 @@ set(SENDSPIN_ENABLE_COLOR OFF CACHE BOOL "" FORCE)
 set(SENDSPIN_ENABLE_VISUALIZER OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(sendspin_cpp)
+
+if(TARGET sendspin)
+    target_include_directories(sendspin BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/compat)
+endif()
 
 add_library(sendspin_jni SHARED sendspin_jni.cpp)
 
