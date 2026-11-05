@@ -1,10 +1,12 @@
 package me.jxl.kiosk_satellite
 
 import android.app.Application
+import android.content.Context
 import android.util.Log
 import androidx.camera.camera2.Camera2Config
 import androidx.camera.core.CameraXConfig
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.multidex.MultiDex
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.embedding.engine.dart.DartExecutor
@@ -31,6 +33,11 @@ import io.flutter.plugins.GeneratedPluginRegistrant
 class KioskApplication : Application(), CameraXConfig.Provider {
     companion object {
         const val ENGINE_ID = "main"
+    }
+
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(base)
+        MultiDex.install(this)
     }
 
     /**

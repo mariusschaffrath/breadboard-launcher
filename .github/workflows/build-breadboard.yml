@@ -35,53 +35,54 @@ jobs:
         run: |
           flutter pub get
 
-      - name: Patch Flutter Embedding Jar for Android 5.1 Compatibility
-        working-directory: app
-        run: |
-          cd android
-          ./gradlew :app:dependencies || true
-          cd ..
-          python3 -c "
-          import os, zipfile, tempfile, shutil
-
-          target = bytes.fromhex('bb002e59b700304d2bb6003d4e2db60043360403360515051504a2001a2d1505b600493a062c1906b9006d020057840501a7ffe52ab400162cb6008eb1')
-          replacement = bytes.fromhex('bb002e59b700304d2ab400162cb6008eb1' + '00' * 44)
-
-          gradle_cache = os.path.expanduser('~/.gradle/caches')
-          patched_count = 0
-          for root, dirs, files in os.walk(gradle_cache):
-              for f in files:
-                  if f.startswith('flutter_embedding_release') and f.endswith('.jar'):
-                      p = os.path.join(root, f)
-                      try:
-                          with zipfile.ZipFile(p, 'r') as zin:
-                              if 'io/flutter/plugin/localization/LocalizationPlugin.class' not in zin.namelist():
-                                  continue
-                              raw = zin.read('io/flutter/plugin/localization/LocalizationPlugin.class')
-                              if target not in raw:
-                                  print('Target already patched or not present in:', p)
-                                  continue
-                              patched_raw = raw.replace(target, replacement, 1)
-                              
-                              tmp = tempfile.mktemp(suffix='.jar')
-                              with zipfile.ZipFile(tmp, 'w') as zout:
-                                  for item in zin.infolist():
-                                      if item.filename == 'io/flutter/plugin/localization/LocalizationPlugin.class':
-                                          zout.writestr(item, patched_raw)
-                                      else:
-                                          zout.writestr(item, zin.read(item.filename))
-                              shutil.move(tmp, p)
-                              patched_count += 1
-                              print('Successfully patched flutter embedding jar for Android 5.1:', p)
-                      except Exception as e:
-                          print('Error inspecting jar:', p, e)
-          print(f'Total flutter embedding jars patched: {patched_count}')
-          "
-
       - name: Build Release APKs (Split per ABI)
         working-directory: app
         run: |
           flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
+
+      - name: Patch APKs for Android 5.1 Compatibility and Re-sign
+        run: |
+          curl -sL -o /tmp/uber-apk-signer.jar "https://github.com/patrickfav/uber-apk-signer/releases/download/v1.3.0/uber-apk-signer-1.3.0.jar"
+          
+          python3 -c "
+          import os, glob, zipfile, struct, hashlib, zlib, subprocess
+
+          apks = glob.glob('app/build/app/outputs/flutter-apk/*.apk')
+          print('Found APKs to check:', apks)
+
+          for apk_path in apks:
+              if 'signed' in apk_path.lower():
+                  continue
+              patched = False
+              tmp_apk = apk_path + '.tmp'
+              with zipfile.ZipFile(apk_path, 'r') as zin, zipfile.ZipFile(tmp_apk, 'w', zipfile.ZIP_DEFLATED) as zout:
+                  for item in zin.infolist():
+                      if item.filename.startswith('META-INF/'):
+                          continue
+                      data = bytearray(zin.read(item.filename))
+                      if item.filename.endswith('.dex') and b'Lio/flutter/plugin/localization/LocalizationPlugin;' in data:
+                          pos = data.find(b'Lio/flutter/plugin/localization/LocalizationPlugin;')
+                          code_needle = bytes.fromhex('220038087010731c')
+                          cpos = data.find(code_needle)
+                          if cpos != -1:
+                              print(f'Patching LocalizationPlugin in {item.filename} of {apk_path} at offset {hex(cpos)}')
+                              data[cpos] = 0x0e
+                              data[cpos + 1] = 0x00
+                              for k in range(2, 97 * 2):
+                                  data[cpos + k] = 0x00
+                              sha1 = hashlib.sha1(data[32:]).digest()
+                              data[12:32] = sha1
+                              adler = zlib.adler32(data[12:]) & 0xffffffff
+                              data[8:12] = struct.pack('<I', adler)
+                              patched = True
+                      zout.writestr(item, data)
+              if patched:
+                  os.replace(tmp_apk, apk_path)
+                  print('Re-signing patched APK:', apk_path)
+                  subprocess.run(['java', '-jar', '/tmp/uber-apk-signer.jar', '--apks', apk_path, '--overwrite'], check=True)
+              else:
+                  if os.path.exists(tmp_apk): os.remove(tmp_apk)
+          "
 
       - name: Stage & Rename APKs
         run: |

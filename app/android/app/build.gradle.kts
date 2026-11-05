@@ -66,6 +66,7 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         // Minimum SDK set to 21 (Android 5.0+) for Fire 7 5th gen (API 22) compatibility
         minSdk = 21
+        multiDexEnabled = true
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -244,6 +245,7 @@ dependencies {
     // release build.
     implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
+    implementation("androidx.multidex:multidex:2.0.1")
 
     // The btproxy protocol layer is deliberately Android-free so it runs
     // under plain JVM unit tests, where a real aioesphomeapi client can
