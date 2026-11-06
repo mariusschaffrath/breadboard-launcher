@@ -1,20 +1,56 @@
 package me.jxl.breadboard;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
 public class MainActivity extends Activity {
     private WebView webView;
     private static final String DASHBOARD_URL = "http://192.168.178.131:8123/apple-homeview/home?kiosk";
     private static final String HA_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkNzk0MWVhOWQ5OWU0YzhjOTc0YjU5NjE4N2Q1YjI0OSIsImlhdCI6MTc4NzkzMDIzNSwiZXhwIjoyMTAzMjkwMjM1fQ.Hx4GbbBbAPN9ToA2opU7wpyIZ5GV1bmgDNHNLswLG9M";
+
+    private static final String POLYFILL_SCRIPT = "<script>"
+        + "try {"
+        + "  if (!window.localStorage.getItem('hassTokens')) {"
+        + "    window.localStorage.setItem('hassTokens', JSON.stringify({"
+        + "      access_token: '" + HA_TOKEN + "',"
+        + "      token_type: 'Bearer',"
+        + "      expires_in: 315360000,"
+        + "      hassUrl: 'http://192.168.178.131:8123'"
+        + "    }));"
+        + "  }"
+        + "} catch(e) {}"
+        + "if (typeof globalThis === 'undefined') { window.globalThis = window; }"
+        + "if (typeof queueMicrotask === 'undefined') { window.queueMicrotask = function(cb) { Promise.resolve().then(cb); }; }"
+        + "if (window.HTMLSlotElement && !HTMLSlotElement.prototype.assignedElements) {"
+        + "  HTMLSlotElement.prototype.assignedElements = function(opts) {"
+        + "    return this.assignedNodes(opts).filter(function(n) { return n.nodeType === 1; });"
+        + "  };"
+        + "}"
+        + "var _origScroll = window.scrollTo;"
+        + "window.scrollTo = function(x, y) {"
+        + "  if (typeof x === 'object' && x !== null) { _origScroll.call(this, x.left || 0, x.top || 0); }"
+        + "  else { _origScroll.apply(this, arguments); }"
+        + "};"
+        + "</script>";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,33 +88,63 @@ public class MainActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 hideSystemUI();
-
-                // Inject Home Assistant Long-Lived Access Token directly into localStorage
-                // This eliminates the login screen completely!
-                String js = "try {" +
-                    "  var tokens = window.localStorage.getItem('hassTokens');" +
-                    "  if (!tokens || tokens.indexOf('" + HA_TOKEN + "') === -1) {" +
-                    "    window.localStorage.setItem('hassTokens', JSON.stringify({" +
-                    "      access_token: '" + HA_TOKEN + "'," +
-                    "      token_type: 'Bearer'," +
-                    "      expires_in: 315360000," +
-                    "      hassUrl: 'http://192.168.178.131:8123'" +
-                    "    }));" +
-                    "    window.location.reload();" +
-                    "  }" +
-                    "} catch(e) {}";
-                view.evaluateJavascript(js, null);
             }
 
             @Override
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-                // Auto-retry in 5 seconds if Home Assistant is restarting or WiFi dropped
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
                         view.loadUrl(DASHBOARD_URL);
                     }
                 }, 5000);
+            }
+
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+                if (url.contains("/apple-homeview") || url.equals("http://192.168.178.131:8123/") || url.contains("/auth/token")) {
+                    WebResourceResponse res = injectPolyfills(view, url);
+                    if (res != null) return res;
+                }
+                return super.shouldInterceptRequest(view, url);
+            }
+
+            @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                String url = request.getUrl().toString();
+                if (url.contains("/apple-homeview") || url.equals("http://192.168.178.131:8123/")) {
+                    WebResourceResponse res = injectPolyfills(view, url);
+                    if (res != null) return res;
+                }
+                return super.shouldInterceptRequest(view, request);
+            }
+
+            private WebResourceResponse injectPolyfills(WebView view, String url) {
+                try {
+                    HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+                    conn.setRequestProperty("User-Agent", view.getSettings().getUserAgentString());
+                    conn.setConnectTimeout(8000);
+                    conn.setReadTimeout(8000);
+                    InputStream is = conn.getInputStream();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line).append("\n");
+                    }
+                    reader.close();
+                    String html = sb.toString();
+                    if (html.contains("<head>")) {
+                        html = html.replaceFirst("<head>", "<head>" + POLYFILL_SCRIPT);
+                    } else {
+                        html = POLYFILL_SCRIPT + html;
+                    }
+                    byte[] bytes = html.getBytes("UTF-8");
+                    return new WebResourceResponse("text/html", "UTF-8", new ByteArrayInputStream(bytes));
+                } catch (Exception e) {
+                    return null;
+                }
             }
         });
 
@@ -106,6 +172,6 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        // Prevent accidental closing of launcher
+        // Prevent accidental exit of home launcher
     }
 }
