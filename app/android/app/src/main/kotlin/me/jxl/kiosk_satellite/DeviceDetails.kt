@@ -30,6 +30,7 @@ import android.system.OsConstants
 import android.system.StructTimeval
 import android.util.DisplayMetrics
 import android.util.Log
+import androidx.core.content.ContextCompat
 import android.view.Display
 import android.view.Surface
 import android.view.WindowManager
@@ -596,7 +597,7 @@ class DeviceDetails(
      */
     private fun bluetooth(): Map<String, Any?>? {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-            context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
+            ContextCompat.checkSelfPermission(context, android.Manifest.permission.BLUETOOTH_CONNECT)
             != PackageManager.PERMISSION_GRANTED) return null
         val manager = context.getSystemService(Context.BLUETOOTH_SERVICE)
             as? BluetoothManager ?: return null

@@ -259,10 +259,12 @@ class BackgroundBridge(
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         android.os.Environment.isExternalStorageManager()
                     } else {
-                        context.checkSelfPermission(
+                        ContextCompat.checkSelfPermission(
+                            context,
                             android.Manifest.permission.READ_EXTERNAL_STORAGE,
                         ) == android.content.pm.PackageManager.PERMISSION_GRANTED &&
-                            context.checkSelfPermission(
+                            ContextCompat.checkSelfPermission(
+                                context,
                                 android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
                             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                     },
@@ -960,7 +962,8 @@ class BackgroundBridge(
     /// process is forked, so a grant made while the app runs shows as
     /// granted here but the process cannot read logd until it restarts.
     private fun readLogsState(): Map<String, Any?> {
-        val granted = context.checkSelfPermission(
+        val granted = ContextCompat.checkSelfPermission(
+            context,
             android.Manifest.permission.READ_LOGS,
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
         val logGid = android.os.Process.getGidForName("log")
@@ -999,7 +1002,8 @@ class BackgroundBridge(
             )
         }
         if (mode == android.app.AppOpsManager.MODE_DEFAULT) {
-            context.checkSelfPermission(
+            ContextCompat.checkSelfPermission(
+                context,
                 android.Manifest.permission.PACKAGE_USAGE_STATS,
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
         } else {

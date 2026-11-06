@@ -198,6 +198,9 @@ flowchart TD
 10. **Native Platform Notification Builder (`KioskSatelliteService.kt`, `SendspinMediaSession.kt`):**
    * *Problem:* AndroidX's `NotificationCompat.Builder.build()` internally references `Notification.Builder.setLargeIcon(Icon)` via R8 synthetic outlines, which crashes on Android 5.1 (API 22) with `NoSuchMethodError` because `android.graphics.drawable.Icon` does not exist prior to API 23.
    * *Fix:* Replaced `NotificationCompat.Builder` in `KioskSatelliteService.kt` with pure native platform `android.app.Notification.Builder`, using resource drawable `R.drawable.ic_stat_service`, eliminating all `NotificationCompat` and `IconCompat` dependencies. Guarded `NotificationManagerCompat.areNotificationsEnabled()` behind API 24, isolated `SendspinMediaSession` icon calls in `SendspinNotificationHelperApi23`, and sanitized `PendingIntent.FLAG_IMMUTABLE` across all alarm and restart bridges.
+11. **Runtime Permission Checks API 22 Compatibility (`BackgroundBridge.kt`, `DeviceDetails.kt`):**
+   * *Problem:* `context.checkSelfPermission(...)` was introduced in Android 6.0 (API 23). Direct calls in `BackgroundBridge.kt` and `DeviceDetails.kt` triggered `NoSuchMethodError: No virtual method checkSelfPermission in class Context` on Android 5.1 during bridge initialization.
+   * *Fix:* Replaced all direct `context.checkSelfPermission` calls with `ContextCompat.checkSelfPermission(context, ...)` from AndroidX Core, which safely falls back to `context.checkPermission` on API < 23.
 
 ## 3. Configuration & Technical Parameters
 * **Application ID:** `me.jxl.kiosk_satellite`
