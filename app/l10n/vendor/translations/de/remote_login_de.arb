@@ -1,6 +1,0 @@
-{
-  "@@locale": "de",
-  "remoteLogin": "Anmelden",
-  "remoteInvalidPassword": "Falsches Passwort",
-  "remoteLoginThrottled": "Zu viele Anmeldeversuche. Warte 5 Minuten und versuche es erneut."
-}

@@ -1,7 +1,0 @@
-{
-  "@@locale": "fr",
-  "settingsSearchHint": "Rechercher dans les paramètres",
-  "settingsSearchClear": "Effacer la recherche",
-  "settingsSearchResults": "Résultats de recherche",
-  "settingsSearchEmpty": "Aucun paramètre ne correspond à « {query} »."
-}

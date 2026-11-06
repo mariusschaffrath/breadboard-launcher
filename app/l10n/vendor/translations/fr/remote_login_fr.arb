@@ -1,6 +1,0 @@
-{
-  "@@locale": "fr",
-  "remoteLogin": "Se connecter",
-  "remoteInvalidPassword": "Mot de passe invalide",
-  "remoteLoginThrottled": "Trop de tentatives. Attendez 5 minutes et réessayez."
-}

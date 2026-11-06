@@ -1,8 +1,0 @@
-{
-  "@@locale": "ru",
-  "mediaNothingQueued": "Очередь пуста",
-  "mediaChapters": "Главы",
-  "mediaNowPlaying": "Сейчас играет",
-  "mediaUpNext": "Далее",
-  "mediaUnnamedChapter": "Глава {number}"
-}

@@ -1,7 +1,0 @@
-{
-  "@@locale": "ru",
-  "mediaGroupLead": "Ведёт группу",
-  "mediaGroupReadFailed": "Не удалось прочитать группу.",
-  "mediaGroupEmpty": "Нет других плееров для объединения.",
-  "mediaSpeakerSelection": "Выбор динамиков"
-}

@@ -1,7 +1,0 @@
-{
-  "@@locale": "uk",
-  "kioskPinTitle": "PIN-код кіоска",
-  "kioskPinHint": "PIN-код",
-  "kioskWrongPin": "Невірний PIN-код",
-  "kioskUnlock": "Розблокувати"
-}

@@ -1,7 +1,0 @@
-{
-  "@@locale": "es",
-  "pluginCloseWindow": "Cerrar {name}",
-  "pluginScanTitle": "Escanea un código",
-  "pluginScanHelp": "Mantén el código dentro del marco.",
-  "pluginScanSource": "Solicitado por {name}"
-}

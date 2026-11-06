@@ -1,7 +1,0 @@
-{
-  "@@locale": "de",
-  "settingsSearchHint": "Einstellungen durchsuchen",
-  "settingsSearchClear": "Suche löschen",
-  "settingsSearchResults": "Suchergebnisse",
-  "settingsSearchEmpty": "Keine Einstellungen entsprechen „{query}“."
-}

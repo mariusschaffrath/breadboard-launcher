@@ -1,7 +1,0 @@
-{
-  "@@locale": "de",
-  "kioskPinTitle": "Kiosk-PIN",
-  "kioskPinHint": "PIN",
-  "kioskWrongPin": "Falsche PIN",
-  "kioskUnlock": "Entsperren"
-}

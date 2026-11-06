@@ -1,7 +1,0 @@
-{
-  "@@locale": "ru",
-  "kioskPinTitle": "PIN-код киоска",
-  "kioskPinHint": "PIN",
-  "kioskWrongPin": "Неверный PIN",
-  "kioskUnlock": "Разблокировать"
-}

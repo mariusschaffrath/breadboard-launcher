@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Release APKs
+    name: Build Native Release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -23,159 +23,25 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: 3.44.6
-          channel: stable
-          cache: true
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
-      - name: Install Dependencies
-        working-directory: app
+      - name: Build Release APK
         run: |
-          flutter pub get
+          gradle assembleRelease --no-daemon
 
-      - name: Build Release APKs (Split per ABI)
-        working-directory: app
-        run: |
-          flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
-
-      - name: Patch APKs for Android 5.1 Compatibility and Re-sign
-        run: |
-          curl -sL -o /tmp/uber-apk-signer.jar "https://github.com/patrickfav/uber-apk-signer/releases/download/v1.3.0/uber-apk-signer-1.3.0.jar"
-          
-          python3 -c "
-          import os, glob, zipfile, struct, hashlib, zlib, subprocess
-
-          def patch_dex_data(data):
-              if b'Lio/flutter/plugin/localization/LocalizationPlugin;' not in data:
-                  return False
-              string_ids_size, string_ids_off = struct.unpack_from('<II', data, 56)
-              type_ids_size, type_ids_off = struct.unpack_from('<II', data, 64)
-              proto_ids_size, proto_ids_off = struct.unpack_from('<II', data, 72)
-              method_ids_size, method_ids_off = struct.unpack_from('<II', data, 88)
-              class_defs_size, class_defs_off = struct.unpack_from('<II', data, 96)
-
-              def read_uleb128(p):
-                  val = 0; shift = 0
-                  while True:
-                      b = data[p]; p += 1
-                      val |= (b & 0x7f) << shift
-                      if not (b & 0x80): break
-                      shift += 7
-                  return val, p
-
-              def get_str(idx):
-                  off = struct.unpack_from('<I', data, string_ids_off + idx * 4)[0]
-                  l, p = read_uleb128(off)
-                  return data[p:p+l].decode('latin1', errors='replace')
-
-              def get_type(idx):
-                  s_idx = struct.unpack_from('<I', data, type_ids_off + idx * 4)[0]
-                  return get_str(s_idx)
-
-              def get_method(idx):
-                  c_idx, p_idx, n_idx = struct.unpack_from('<HHI', data, method_ids_off + idx * 8)
-                  return get_str(n_idx)
-
-              patched = False
-              for i in range(class_defs_size):
-                  c_idx = struct.unpack_from('<I', data, class_defs_off + i * 32)[0]
-                  if get_type(c_idx) == 'Lio/flutter/plugin/localization/LocalizationPlugin;':
-                      cdata_off = struct.unpack_from('<I', data, class_defs_off + i * 32 + 24)[0]
-                      p = cdata_off
-                      sf, p = read_uleb128(p)
-                      inf, p = read_uleb128(p)
-                      dm, p = read_uleb128(p)
-                      vm, p = read_uleb128(p)
-                      for _ in range(sf + inf):
-                          _, p = read_uleb128(p); _, p = read_uleb128(p)
-                      m_idx = 0
-                      for _ in range(dm):
-                          d, p = read_uleb128(p); m_idx += d; _, p = read_uleb128(p); _, p = read_uleb128(p)
-                      m_idx = 0
-                      for _ in range(vm):
-                          d, p = read_uleb128(p); m_idx += d; _, p = read_uleb128(p); code_off, p = read_uleb128(p)
-                          name = get_method(m_idx)
-                          if name == 'sendLocalesToFlutter':
-                              insns_size = struct.unpack_from('<I', data, code_off + 12)[0]
-                              cpos = code_off + 16
-                              # Dalvik return-void opcode: 0x0e 0x00
-                              data[cpos] = 0x0e
-                              data[cpos + 1] = 0x00
-                              for k in range(2, insns_size * 2):
-                                  data[cpos + k] = 0x00
-                              sha1 = hashlib.sha1(data[32:]).digest()
-                              data[12:32] = sha1
-                              adler = zlib.adler32(data[12:]) & 0xffffffff
-                              data[8:12] = struct.pack('<I', adler)
-                              patched = True
-                              print(f'Successfully patched sendLocalesToFlutter in DEX at code_off={hex(code_off)}')
-              return patched
-
-          apks = glob.glob('app/build/app/outputs/flutter-apk/*.apk')
-          print('Found APKs to check:', apks)
-
-          for apk_path in apks:
-              if 'signed' in apk_path.lower():
-                  continue
-              apk_patched = False
-              tmp_apk = apk_path + '.tmp'
-              with zipfile.ZipFile(apk_path, 'r') as zin, zipfile.ZipFile(tmp_apk, 'w', zipfile.ZIP_DEFLATED) as zout:
-                  for item in zin.infolist():
-                      if item.filename.startswith('META-INF/'):
-                          continue
-                      data = bytearray(zin.read(item.filename))
-                      if item.filename.endswith('.dex'):
-                          if patch_dex_data(data):
-                              print(f'Patched {item.filename} in {apk_path}')
-                              apk_patched = True
-                      zout.writestr(item, data)
-              if apk_patched:
-                  os.replace(tmp_apk, apk_path)
-                  print('Re-signing patched APK:', apk_path)
-                  subprocess.run(['java', '-jar', '/tmp/uber-apk-signer.jar', '--apks', apk_path, '--overwrite'], check=True)
-              else:
-                  if os.path.exists(tmp_apk): os.remove(tmp_apk)
-          "
-
-      - name: Stage & Rename APKs
-        run: |
-          mkdir -p dist
-          APK_DIR="app/build/app/outputs/flutter-apk"
-          
-          if [ -f "$APK_DIR/app-armeabi-v7a-release.apk" ]; then
-            cp "$APK_DIR/app-armeabi-v7a-release.apk" dist/BreadBoard-armeabi-v7a.apk
-          fi
-          if [ -f "$APK_DIR/app-arm64-v8a-release.apk" ]; then
-            cp "$APK_DIR/app-arm64-v8a-release.apk" dist/BreadBoard-arm64-v8a.apk
-          fi
-          if [ -f "$APK_DIR/app-release.apk" ]; then
-            cp "$APK_DIR/app-release.apk" dist/BreadBoard-universal.apk
-          fi
-          
-          echo "Staged APKs:"
-          ls -la dist/
-
-      - name: Upload APK Artifacts
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: breadboard-apks
-          path: dist/*.apk
-          retention-days: 14
+          name: BreadBoard-Native-release
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 7
 
-      - name: Publish GitHub Release
+      - name: Create GitHub Release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config --global user.name "Marius Schaffrath (Antigravity CI)"
-          git config --global user.email "antigravity@marius.local"
-          
-          TAG="v1.0.0-breadboard"
-          git tag -f "$TAG" || true
-          git push -f origin "$TAG" || true
-          
-          gh release delete "$TAG" --yes 2>/dev/null || true
-          gh release create "$TAG" dist/*.apk \
-            --title "BreadBoard Launcher v1.0.0 (Apple HomeView)" \
-            --notes "Custom Apple HomeView Smart Display Launcher for Fire 7 and Home Assistant. Features: Branded as BreadBoard (Apple Software 27.2 Leak), Pre-configured Zero-Config for Home Assistant, Fullscreen Kiosk, Optimized for Fire 7 hardware (armeabi-v7a / arm64-v8a)."
+          gh release delete v2.0.0-native --yes 2>/dev/null || true
+          gh release create v2.0.0-native app/build/outputs/apk/release/*.apk \
+            --title "BreadBoard Launcher v2.0.0 Native" \
+            --notes "Native ultra-lightweight Android 5.1 launcher for Apple HomeView Smart Display with zero-login injection and zero bloat."

@@ -1,5 +1,0 @@
-{
-  "@@locale": "uk",
-  "launcherErrorAndroidOnly": "перелік програм доступний лише на Android",
-  "launcherErrorListDetail": "не вдалося отримати список програм: {error}"
-}

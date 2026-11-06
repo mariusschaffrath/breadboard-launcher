@@ -1,7 +1,0 @@
-{
-  "@@locale": "uk",
-  "pluginCloseWindow": "Закрити {name}",
-  "pluginScanTitle": "Скануйте код",
-  "pluginScanHelp": "Тримайте код у рамці.",
-  "pluginScanSource": "Запит від {name}"
-}

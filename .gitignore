@@ -30,3 +30,6 @@ app/android/app/upload-keystore.jks
 benchmarks/
 
 AGENTS.md
+app_flutter_legacy/
+.gradle/
+build/

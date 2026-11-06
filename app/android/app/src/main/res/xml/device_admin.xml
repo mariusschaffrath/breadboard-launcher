@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- force-lock backs the admin's true "Screen off" (lockNow); device-owner
-     status (dpm set-device-owner) additionally unlocks full lock-task
-     kiosk mode. -->
-<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-policies>
-        <force-lock />
-    </uses-policies>
-</device-admin>
