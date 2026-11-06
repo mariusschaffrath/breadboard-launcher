@@ -39,10 +39,14 @@ object WifiMac {
     }
 
     private fun deviceOwnerMac(context: Context): String? = try {
-        val dpm = context.getSystemService(DevicePolicyManager::class.java)
-        if (dpm != null && dpm.isDeviceOwnerApp(context.packageName)) {
-            normalize(dpm.getWifiMacAddress(
-                ComponentName(context, KioskAdminReceiver::class.java)))
+        if (android.os.Build.VERSION.SDK_INT >= 24) {
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
+            if (dpm != null && dpm.isDeviceOwnerApp(context.packageName)) {
+                normalize(dpm.getWifiMacAddress(
+                    ComponentName(context, KioskAdminReceiver::class.java)))
+            } else {
+                null
+            }
         } else {
             null
         }

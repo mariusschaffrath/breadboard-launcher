@@ -642,9 +642,14 @@ class BackgroundBridge(
      * Fails open — an unanswerable question must not raise an outage.
      */
     private fun networkUp(): Boolean = try {
-        (context.getSystemService(Context.CONNECTIVITY_SERVICE)
-            as ConnectivityManager).activeNetwork != null
-    } catch (e: Exception) {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            cm?.activeNetwork != null
+        } else {
+            @Suppress("DEPRECATION")
+            cm?.activeNetworkInfo?.isConnected == true
+        }
+    } catch (e: Throwable) {
         true
     }
 
@@ -1137,8 +1142,7 @@ class BackgroundBridge(
         }
     }
 
-    private fun canDrawOverlays(): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)
+    private fun canDrawOverlays(): Boolean = OverlayCompat.canDrawOverlays(context)
 
     private fun isAdminActive(): Boolean = try {
         val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager

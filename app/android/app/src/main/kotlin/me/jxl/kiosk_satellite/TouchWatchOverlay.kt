@@ -57,7 +57,7 @@ object TouchWatchOverlay {
         params.gravity = Gravity.TOP or Gravity.START
         params.alpha = 0f
         return try {
-            context.getSystemService(WindowManager::class.java).addView(v, params)
+            (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).addView(v, params)
             view = v
             true
         } catch (e: Exception) {
@@ -72,7 +72,7 @@ object TouchWatchOverlay {
         val v = view ?: return
         view = null
         try {
-            context.getSystemService(WindowManager::class.java).removeViewImmediate(v)
+            (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).removeViewImmediate(v)
         } catch (_: Exception) {
         }
     }

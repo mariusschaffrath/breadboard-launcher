@@ -273,7 +273,7 @@ class KioskSatelliteService : Service() {
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val reasons = reasonsOf(prefs)
         val localized = NativeMessages.forKiosk(this)
-        val language = localized.resources.configuration.locales[0].toLanguageTag()
+        val language = LocaleCompat.getPrimaryLocale(localized).toLanguageTag()
         if (channelLanguage != language) {
             createChannel(localized)
             channelLanguage = language
@@ -480,7 +480,7 @@ class KioskSatelliteService : Service() {
                 // the back swallow never sees (issue #219).
                 HomeRole.isHeld(this)
         if (!exiting && guarded &&
-            android.provider.Settings.canDrawOverlays(this)
+            OverlayCompat.canDrawOverlays(this)
         ) {
             HomeRole.launchIntent(this)?.let {
                 it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

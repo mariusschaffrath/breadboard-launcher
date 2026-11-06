@@ -176,7 +176,7 @@ object HomeRole {
     }
 
     fun isDeviceOwner(context: Context): Boolean = try {
-        context.getSystemService(DevicePolicyManager::class.java)
+        (context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager)
             ?.isDeviceOwnerApp(context.packageName) == true
     } catch (_: Exception) {
         false
@@ -191,13 +191,13 @@ object HomeRole {
         if (!isDeviceOwner(context)) return false
         return try {
             setAliasEnabled(context, true)
-            val dpm = context.getSystemService(DevicePolicyManager::class.java)
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
             val admin = ComponentName(context, KioskAdminReceiver::class.java)
             val filter = IntentFilter(Intent.ACTION_MAIN).apply {
                 addCategory(Intent.CATEGORY_HOME)
                 addCategory(Intent.CATEGORY_DEFAULT)
             }
-            dpm.addPersistentPreferredActivity(admin, filter, alias(context))
+            dpm?.addPersistentPreferredActivity(admin, filter, alias(context))
             Log.i(TAG, "home role acquired as device owner")
             true
         } catch (e: Exception) {
@@ -266,9 +266,9 @@ object HomeRole {
         val hadAlias = aliasEnabled(context)
         try {
             if (isDeviceOwner(context)) {
-                val dpm = context.getSystemService(DevicePolicyManager::class.java)
+                val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
                 val admin = ComponentName(context, KioskAdminReceiver::class.java)
-                dpm.clearPackagePersistentPreferredActivities(
+                dpm?.clearPackagePersistentPreferredActivities(
                     admin, context.packageName)
             }
         } catch (e: Exception) {

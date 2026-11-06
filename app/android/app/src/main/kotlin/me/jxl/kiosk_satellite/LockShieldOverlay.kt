@@ -93,7 +93,7 @@ object LockShieldOverlay {
         val guard =
             if (onPortal) KioskAccessibilityService.instance else null
         val hostContext: Context = guard ?: context.applicationContext
-        if (guard == null && !Settings.canDrawOverlays(context)) return
+        if (guard == null && !OverlayCompat.canDrawOverlays(context)) return
         passThrough = false
         val dm = hostContext.resources.displayMetrics
         fun dp(v: Float) = TypedValue.applyDimension(
@@ -131,7 +131,7 @@ object LockShieldOverlay {
         }
 
         try {
-            hostContext.getSystemService(WindowManager::class.java)
+            (hostContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager)
                 .addView(root, params(guard != null))
             view = root
             pill = text
@@ -150,7 +150,7 @@ object LockShieldOverlay {
         if (passThrough == value) return
         passThrough = value
         try {
-            h.getSystemService(WindowManager::class.java)
+            (h.getSystemService(Context.WINDOW_SERVICE) as WindowManager)
                 .updateViewLayout(v, params(h is KioskAccessibilityService))
         } catch (_: Exception) {
         }
@@ -239,7 +239,7 @@ object LockShieldOverlay {
         hidePill?.let { main.removeCallbacks(it) }
         hidePill = null
         try {
-            h?.getSystemService(WindowManager::class.java)?.removeView(v)
+            (h?.getSystemService(Context.WINDOW_SERVICE) as? WindowManager)?.removeView(v)
         } catch (_: Exception) {
         }
     }

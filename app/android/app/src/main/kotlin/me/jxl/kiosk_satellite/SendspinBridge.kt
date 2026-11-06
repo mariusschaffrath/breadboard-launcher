@@ -113,7 +113,7 @@ class SendspinBridge(
     @Volatile private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     private fun registerNetworkCallback() {
-        if (networkCallback != null) return
+        if (Build.VERSION.SDK_INT < 24 || networkCallback != null) return
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         if (cm == null) {
             Log.w(TAG, "No ConnectivityManager; network kick disabled")

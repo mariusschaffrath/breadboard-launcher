@@ -203,8 +203,12 @@ class MicRecorder(context: Context, messenger: BinaryMessenger) : EventChannel.S
     override fun onListen(arguments: Any?, sink: EventChannel.EventSink?) {
         if (sink == null || recording) return
         val args = arguments as? Map<*, *>
-        val unprocessedSupported = appContext.getSystemService(AudioManager::class.java)
-            .getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED)
+        val am = appContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        val unprocessedSupported = if (Build.VERSION.SDK_INT >= 24) {
+            am?.getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED)
+        } else {
+            null
+        }
         val source = if (args?.get("source") == "voice_communication") {
             MediaRecorder.AudioSource.VOICE_COMMUNICATION
         } else {

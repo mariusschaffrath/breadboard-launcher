@@ -31,7 +31,7 @@ internal class RtspDateTimeText(private val context: Context) {
         val currentSecond = Math.floorDiv(now, 1000L)
         if (currentSecond == second) return text
         second = currentSecond
-        val locale = context.resources.configuration.locales[0]
+        val locale = LocaleCompat.getPrimaryLocale(context)
         val zone = TimeZone.getDefault()
         val use24Hour = DateFormat.is24HourFormat(context)
         val datePreference = android.provider.Settings.System.getString(context.contentResolver, "date_format")

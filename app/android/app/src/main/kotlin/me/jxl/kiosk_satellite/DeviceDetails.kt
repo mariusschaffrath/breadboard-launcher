@@ -793,6 +793,27 @@ class DeviceDetails(
      */
     private fun link(): Map<String, Any?>? {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            @Suppress("DEPRECATION")
+            val netInfo = cm.activeNetworkInfo ?: return null
+            val type = when (netInfo.type) {
+                ConnectivityManager.TYPE_ETHERNET -> "ethernet"
+                ConnectivityManager.TYPE_WIFI -> "wifi"
+                ConnectivityManager.TYPE_MOBILE -> "cellular"
+                ConnectivityManager.TYPE_VPN -> "vpn"
+                else -> "other"
+            }
+            if (type != "wifi") return mapOf("type" to type)
+            @Suppress("DEPRECATION")
+            val info = (context.applicationContext.getSystemService(Context.WIFI_SERVICE)
+                as? WifiManager)?.connectionInfo
+            return mapOf(
+                "type" to type,
+                "rssi" to info?.rssi?.takeIf { it in -126..-1 },
+                "speedMbps" to info?.linkSpeed?.takeIf { it > 0 },
+                "frequencyMhz" to null,
+            )
+        }
         val network = cm.activeNetwork ?: return null
         val caps = cm.getNetworkCapabilities(network) ?: return null
         val type = when {

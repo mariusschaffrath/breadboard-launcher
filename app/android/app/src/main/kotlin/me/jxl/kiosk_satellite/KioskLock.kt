@@ -241,15 +241,18 @@ class KioskLock(private val activity: Activity, messenger: BinaryMessenger) {
                     result.success(null)
                 }
                 "hasOverlayPermission" ->
-                    result.success(Settings.canDrawOverlays(activity))
+                    result.success(OverlayCompat.canDrawOverlays(activity))
                 "hasUiGuard" ->
                     result.success(KioskAccessibilityService.running)
                 "isPinned" -> {
-                    val am = activity.getSystemService(ActivityManager::class.java)
-                    result.success(
-                        am.lockTaskModeState !=
-                            ActivityManager.LOCK_TASK_MODE_NONE
-                    )
+                    val am = activity.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+                    val pinned = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        am?.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
+                    } else {
+                        @Suppress("DEPRECATION")
+                        am?.isInLockTaskMode == true
+                    }
+                    result.success(pinned)
                 }
                 "lockShieldText" -> {
                     call.argument<String>("text")?.let { LockShieldOverlay.setText(it) }
@@ -303,9 +306,13 @@ class KioskLock(private val activity: Activity, messenger: BinaryMessenger) {
                 // dropped, so Dart can re-arm right away if the launch then
                 // fails (its resume re-pin never fires without a pause).
                 "unpin" -> {
-                    val am = activity.getSystemService(ActivityManager::class.java)
-                    val pinned = am.lockTaskModeState !=
-                        ActivityManager.LOCK_TASK_MODE_NONE
+                    val am = activity.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+                    val pinned = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        am?.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
+                    } else {
+                        @Suppress("DEPRECATION")
+                        am?.isInLockTaskMode == true
+                    }
                     if (pinned) {
                         try {
                             activity.stopLockTask()
@@ -535,7 +542,7 @@ class KioskLock(private val activity: Activity, messenger: BinaryMessenger) {
 
     private fun setShield(enabled: Boolean) {
         if (enabled && shield == null) {
-            if (!Settings.canDrawOverlays(activity)) return
+            if (!OverlayCompat.canDrawOverlays(activity)) return
             // Only the very edge, NOT the full status_bar_height: the
             // shade-opening swipe has to BEGIN within the first few
             // pixels of the display (measured on One UI: a swipe from
@@ -574,7 +581,7 @@ class KioskLock(private val activity: Activity, messenger: BinaryMessenger) {
             // guard and the lockdown shield unarmed on every apply
             // (issue #280).
             try {
-                activity.getSystemService(WindowManager::class.java)
+                (activity.getSystemService(Context.WINDOW_SERVICE) as WindowManager)
                     .addView(view, params)
                 shield = view
             } catch (e: Exception) {
@@ -582,7 +589,7 @@ class KioskLock(private val activity: Activity, messenger: BinaryMessenger) {
             }
         } else if (!enabled && shield != null) {
             try {
-                activity.getSystemService(WindowManager::class.java)
+                (activity.getSystemService(Context.WINDOW_SERVICE) as WindowManager)
                     .removeView(shield)
             } catch (e: Exception) {
                 Log.w(TAG, "removing the status bar shield failed: $e")
@@ -592,12 +599,16 @@ class KioskLock(private val activity: Activity, messenger: BinaryMessenger) {
     }
 
     private fun setPinned(enabled: Boolean, silentOnly: Boolean) {
-        val am = activity.getSystemService(ActivityManager::class.java)
-        val pinned =
-            am.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
+        val am = activity.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+        val pinned = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            am?.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
+        } else {
+            @Suppress("DEPRECATION")
+            am?.isInLockTaskMode == true
+        }
         try {
-            val dpm = activity.getSystemService(DevicePolicyManager::class.java)
-            val owner = dpm.isDeviceOwnerApp(activity.packageName)
+            val dpm = activity.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
+            val owner = dpm?.isDeviceOwnerApp(activity.packageName) == true
             // With the home role held on a non-owner device, the pin is
             // skipped unless home.keep_pinning asks for it (issue #219):
             // HOME already lands back on the kiosk through the role, and

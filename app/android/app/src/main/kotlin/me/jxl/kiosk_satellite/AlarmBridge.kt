@@ -174,14 +174,14 @@ class AlarmBridge(private val context: Context, messenger: BinaryMessenger) {
                 // No exact alarm grant (an Android 14 install that refused
                 // it): still wake near the time rather than not at all.
                 Log.w(TAG, "setAlarmClock refused, ringing inexactly: $e")
-                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ringAt, ring)
+                AlarmCompat.setAndAllowWhileIdle(alarmManager, AlarmManager.RTC_WAKEUP, ringAt, ring)
             }
         }
         if (wakeAt != null && (ringAt == null || wakeAt < ringAt)) {
             try {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, wakeAt, wake)
+                AlarmCompat.setExactAndAllowWhileIdle(alarmManager, AlarmManager.RTC_WAKEUP, wakeAt, wake)
             } catch (e: SecurityException) {
-                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, wakeAt, wake)
+                AlarmCompat.setAndAllowWhileIdle(alarmManager, AlarmManager.RTC_WAKEUP, wakeAt, wake)
             }
         }
     }

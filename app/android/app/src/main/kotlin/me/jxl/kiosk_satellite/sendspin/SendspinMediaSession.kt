@@ -327,7 +327,7 @@ class SendspinMediaSession(
     }
 
     private fun manager(): NotificationManager? =
-        context.getSystemService(NotificationManager::class.java)
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
 
     private fun openApp(): PendingIntent = PendingIntent.getActivity(
         context,

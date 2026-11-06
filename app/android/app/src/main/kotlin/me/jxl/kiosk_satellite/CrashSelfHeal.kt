@@ -106,7 +106,7 @@ object CrashSelfHeal {
             // Without the overlay grant Android discards this silently, so
             // say so ourselves; the attempt is still made because a few ROMs
             // are more permissive than stock.
-            if (!Settings.canDrawOverlays(context)) {
+            if (!OverlayCompat.canDrawOverlays(context)) {
                 android.util.Log.w(TAG,
                     "relaunching without the overlay grant; Android may drop it")
             }
@@ -121,7 +121,8 @@ object CrashSelfHeal {
         try {
             val alarms = context.getSystemService(Context.ALARM_SERVICE)
                 as AlarmManager
-            alarms.setAndAllowWhileIdle(
+            AlarmCompat.setAndAllowWhileIdle(
+                alarms,
                 AlarmManager.ELAPSED_REALTIME_WAKEUP,
                 SystemClock.elapsedRealtime() + HEARTBEAT_MS,
                 heartbeatIntent(context),

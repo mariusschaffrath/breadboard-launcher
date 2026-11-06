@@ -181,6 +181,20 @@ flowchart TD
 5. **Sensor Framework API 24 Shims (`LightSensor.kt`, `ProximitySensor.kt`):**
    * *Problem:* `SensorManager.DynamicSensorCallback` and `getDynamicSensorList` were added in Android 7.0 (API 24). Direct class inheritance caused `NoClassDefFoundError: LightSensor$dynamicCallback$1` on Android 5.1.
    * *Fix:* Isolated `DynamicSensorCallback` into an `@RequiresApi(Build.VERSION_CODES.N)` helper `DynamicSensorHelper` and guarded all dynamic sensor calls behind `Build.VERSION.SDK_INT >= Build.VERSION_CODES.N`.
+6. **Locale Configuration Compatibility (`LocaleCompat.kt`):**
+   * *Problem:* `Configuration.locales` (i.e. `Configuration.getLocales()`) was added in API 24 (Android 7.0). In `KioskSatelliteService.refresh()` and `RtspDateTimeOverlay`, accessing `configuration.locales[0]` threw `java.lang.NoSuchMethodError: No virtual method getLocales()Landroid/os/LocaleList; in class Landroid/content/res/Configuration;` on Android 5.1.
+   * *Fix:* Created `LocaleCompat` with isolated `Api24Impl` (`@RequiresApi(Build.VERSION_CODES.N)`), falling back safely to `@Suppress("DEPRECATION") configuration.locale` on API <= 23.
+7. **Draw-Over-Apps Permission Compatibility (`OverlayCompat.kt`):**
+   * *Problem:* `Settings.canDrawOverlays(Context)` was introduced in Android 6.0 (API 23). Direct calls in `KioskSatelliteService`, `LockShieldOverlay`, `CrashSelfHeal`, and `KioskLock` threw `NoSuchMethodError` on API 22.
+   * *Fix:* Created `OverlayCompat.canDrawOverlays(context)` returning `true` unconditionally on API < 23 (where `SYSTEM_ALERT_WINDOW` is granted at install time) and delegating to `Settings.canDrawOverlays` on API 23+.
+8. **AlarmManager While-Idle Compatibility (`AlarmCompat.kt`):**
+   * *Problem:* `AlarmManager.setAndAllowWhileIdle` and `setExactAndAllowWhileIdle` were added in API 23. Direct calls in `CrashSelfHeal` and `AlarmBridge` threw `NoSuchMethodError` on API 22.
+   * *Fix:* Created `AlarmCompat` delegating to `alarmManager.set()` and `setExact()` on API < 23.
+9. **Android Framework API 22/23/24 Shims:**
+   * *`Context.getSystemService(Class<T>)`:* Replaced calls with `context.getSystemService(String)` (e.g., `WINDOW_SERVICE`, `ACTIVITY_SERVICE`, `NOTIFICATION_SERVICE`, `DEVICE_POLICY_SERVICE`, `AUDIO_SERVICE`) in `KioskLock.kt`, `LockShieldOverlay.kt`, `TouchWatchOverlay.kt`, `HomeRole.kt`, `WifiMac.kt`, `MicRecorder.kt`, and `SendspinMediaSession.kt` to prevent runtime `NoSuchMethodError` on API 22.
+   * *`ActivityManager.getLockTaskModeState()`:* Guarded behind API 23 in `KioskLock.kt`, falling back to `am.isInLockTaskMode` on API 21-22.
+   * *`ConnectivityManager.activeNetwork`:* Guarded behind API 23, falling back to `cm.activeNetworkInfo?.isConnected == true` on API 22 in `BackgroundBridge.kt`, `SendspinBridge.kt`, and `DeviceDetails.kt`.
+   * *`AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED`:* Guarded behind API 24 in `MicRecorder.kt`.
 
 ## 3. Configuration & Technical Parameters
 * **Application ID:** `me.jxl.kiosk_satellite`
