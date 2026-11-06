@@ -195,9 +195,9 @@ flowchart TD
    * *`ActivityManager.getLockTaskModeState()`:* Guarded behind API 23 in `KioskLock.kt`, falling back to `am.isInLockTaskMode` on API 21-22.
    * *`ConnectivityManager.activeNetwork`:* Guarded behind API 23, falling back to `cm.activeNetworkInfo?.isConnected == true` on API 22 in `BackgroundBridge.kt`, `SendspinBridge.kt`, and `DeviceDetails.kt`.
    * *`AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED`:* Guarded behind API 24 in `MicRecorder.kt`.
-10. **Notification & IconCompat API 22 Fallback (`KioskSatelliteService.kt`, `SendspinMediaSession.kt`):**
-   * *Problem:* Calling `IconCompat.createWithBitmap()` or `android.graphics.drawable.Icon` on Android 5.1 (API 22) triggered `NoSuchMethodError: No virtual method setLargeIcon(Icon)` inside `NotificationCompat.Builder.build()` and `SendspinMediaSession.notify()`, because `android.graphics.drawable.Icon` was only added in Android 6.0 (API 23).
-   * *Fix:* Fall back to standard resource ID `R.drawable.ic_stat_service` for small icons on API < 23, guard `Icon` usages behind `Build.VERSION.SDK_INT >= Build.VERSION_CODES.M` using isolated helper `SendspinNotificationHelperApi23`, and guard `PendingIntent.FLAG_IMMUTABLE` across `KioskSatelliteService`, `CrashSelfHeal`, `BackgroundBridge`, and `AlarmBridge`.
+10. **Native Platform Notification Builder (`KioskSatelliteService.kt`, `SendspinMediaSession.kt`):**
+   * *Problem:* AndroidX's `NotificationCompat.Builder.build()` internally references `Notification.Builder.setLargeIcon(Icon)` via R8 synthetic outlines, which crashes on Android 5.1 (API 22) with `NoSuchMethodError` because `android.graphics.drawable.Icon` does not exist prior to API 23.
+   * *Fix:* Replaced `NotificationCompat.Builder` in `KioskSatelliteService.kt` with pure native platform `android.app.Notification.Builder`, using resource drawable `R.drawable.ic_stat_service`, eliminating all `NotificationCompat` and `IconCompat` dependencies. Guarded `NotificationManagerCompat.areNotificationsEnabled()` behind API 24, isolated `SendspinMediaSession` icon calls in `SendspinNotificationHelperApi23`, and sanitized `PendingIntent.FLAG_IMMUTABLE` across all alarm and restart bridges.
 
 ## 3. Configuration & Technical Parameters
 * **Application ID:** `me.jxl.kiosk_satellite`

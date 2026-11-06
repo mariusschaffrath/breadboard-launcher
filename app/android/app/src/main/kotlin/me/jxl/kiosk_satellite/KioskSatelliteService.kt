@@ -18,10 +18,8 @@ import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
-import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.drawable.IconCompat
 
 /**
  * The one foreground service that keeps the app alive, whatever it is
@@ -200,8 +198,11 @@ class KioskSatelliteService : Service() {
                 "wifiLockHeld" to WifiLockHolder.isHeld,
                 "screenInteractive" to pm.isInteractive,
                 "uptimeMs" to if (isRunning) SystemClock.elapsedRealtime() - startedAt else null,
-                "notificationsEnabled" to
-                    NotificationManagerCompat.from(context).areNotificationsEnabled(),
+                "notificationsEnabled" to if (Build.VERSION.SDK_INT >= 24) {
+                    NotificationManagerCompat.from(context).areNotificationsEnabled()
+                } else {
+                    true
+                },
                 "error" to prefs.getString(KEY_LAST_ERROR, null),
             )
         }
@@ -519,7 +520,7 @@ class KioskSatelliteService : Service() {
 
     private fun createChannel(localized: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val manager = getSystemService(NotificationManager::class.java) ?: return
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
         // The channels the three earlier services used: gone with them, so
         // an install that saw them does not keep two dead entries in its
         // notification settings.
@@ -564,36 +565,32 @@ class KioskSatelliteService : Service() {
             0,
             HomeRole.launchIntent(this)
                 ?: Intent(this, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    this.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
                 },
             pendingIntentFlags,
         )
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, CHANNEL_ID)
+        } else {
+            @Suppress("DEPRECATION")
+            Notification.Builder(this)
+        }
+        builder
             .setContentTitle(localized.getString(R.string.ks_service_title))
             .setContentText(summary(reasons, localized))
             .setContentIntent(open)
-        // The icon travels as pixels (see StatusBarIcon); the resource id
-        // is the fallback when the drawable cannot be rendered here.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val icon = smallIcon()
-            if (icon != null) builder.setSmallIcon(icon) else builder.setSmallIcon(R.drawable.ic_stat_service)
-        } else {
-            builder.setSmallIcon(R.drawable.ic_stat_service)
-        }
-        return builder
+            .setSmallIcon(R.drawable.ic_stat_service)
             .setOngoing(true)
             .setShowWhen(false)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .build()
-    }
 
-    private var smallIconBitmap: IconCompat? = null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+            @Suppress("DEPRECATION")
+            builder.setPriority(Notification.PRIORITY_LOW)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            builder.setCategory(Notification.CATEGORY_SERVICE)
+        }
 
-    @androidx.annotation.RequiresApi(Build.VERSION_CODES.M)
-    private fun smallIcon(): IconCompat? {
-        smallIconBitmap?.let { return it }
-        val bitmap = StatusBarIcon.bitmap(this) ?: return null
-        return IconCompat.createWithBitmap(bitmap).also { smallIconBitmap = it }
+        return builder.build()
     }
 }
