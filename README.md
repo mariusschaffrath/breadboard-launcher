@@ -195,6 +195,9 @@ flowchart TD
    * *`ActivityManager.getLockTaskModeState()`:* Guarded behind API 23 in `KioskLock.kt`, falling back to `am.isInLockTaskMode` on API 21-22.
    * *`ConnectivityManager.activeNetwork`:* Guarded behind API 23, falling back to `cm.activeNetworkInfo?.isConnected == true` on API 22 in `BackgroundBridge.kt`, `SendspinBridge.kt`, and `DeviceDetails.kt`.
    * *`AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED`:* Guarded behind API 24 in `MicRecorder.kt`.
+10. **Notification & IconCompat API 22 Fallback (`KioskSatelliteService.kt`, `SendspinMediaSession.kt`):**
+   * *Problem:* Calling `IconCompat.createWithBitmap()` or `android.graphics.drawable.Icon` on Android 5.1 (API 22) triggered `NoSuchMethodError: No virtual method setLargeIcon(Icon)` inside `NotificationCompat.Builder.build()` and `SendspinMediaSession.notify()`, because `android.graphics.drawable.Icon` was only added in Android 6.0 (API 23).
+   * *Fix:* Fall back to standard resource ID `R.drawable.ic_stat_service` for small icons on API < 23, guard `Icon` usages behind `Build.VERSION.SDK_INT >= Build.VERSION_CODES.M` using isolated helper `SendspinNotificationHelperApi23`, and guard `PendingIntent.FLAG_IMMUTABLE` across `KioskSatelliteService`, `CrashSelfHeal`, `BackgroundBridge`, and `AlarmBridge`.
 
 ## 3. Configuration & Technical Parameters
 * **Application ID:** `me.jxl.kiosk_satellite`

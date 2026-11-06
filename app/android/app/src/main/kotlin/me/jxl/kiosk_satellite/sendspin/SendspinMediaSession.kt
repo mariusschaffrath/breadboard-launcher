@@ -336,7 +336,7 @@ class SendspinMediaSession(
             ?: Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             },
-        PendingIntent.FLAG_IMMUTABLE,
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0,
     )
 
     /** The notification buttons land here; Android 13 and later steer the session directly. */
@@ -365,7 +365,11 @@ class SendspinMediaSession(
         context,
         code,
         Intent(ACTION_COMMAND).setPackage(context.packageName).putExtra(EXTRA_COMMAND, name),
-        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        },
     )
 
     private fun notify(session: MediaSession, offered: List<String>) {
@@ -379,21 +383,30 @@ class SendspinMediaSession(
                 @Suppress("DEPRECATION")
                 Notification.Builder(context).setPriority(Notification.PRIORITY_LOW)
             }
-            val icon = StatusBarIcon.bitmap(context)
-            if (icon != null) {
-                builder.setSmallIcon(Icon.createWithBitmap(icon))
+            val icon = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) StatusBarIcon.bitmap(context) else null
+            if (icon != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                SendspinNotificationHelperApi23.setSmallIcon(builder, icon)
             } else {
                 builder.setSmallIcon(R.drawable.ic_stat_service)
             }
             val buttons = buttonsFor(offered, shownPlaying)
             buttons.forEachIndexed { index, name ->
-                builder.addAction(
-                    Notification.Action.Builder(
-                        Icon.createWithResource(context, buttonIcon(name)),
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    SendspinNotificationHelperApi23.addAction(
+                        builder,
+                        context,
+                        buttonIcon(name),
                         localized.getString(buttonLabel(name)),
                         commandIntent(name, index),
-                    ).build(),
-                )
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    builder.addAction(
+                        buttonIcon(name),
+                        localized.getString(buttonLabel(name)),
+                        commandIntent(name, index),
+                    )
+                }
             }
             builder
                 .setContentTitle(title)
@@ -462,5 +475,28 @@ class SendspinMediaSession(
     } catch (e: Throwable) {
         Log.w(TAG, "artwork not decodable: $e")
         null
+    }
+}
+
+@androidx.annotation.RequiresApi(Build.VERSION_CODES.M)
+private object SendspinNotificationHelperApi23 {
+    fun setSmallIcon(builder: Notification.Builder, bitmap: Bitmap) {
+        builder.setSmallIcon(Icon.createWithBitmap(bitmap))
+    }
+
+    fun addAction(
+        builder: Notification.Builder,
+        context: Context,
+        iconRes: Int,
+        label: String,
+        intent: PendingIntent,
+    ) {
+        builder.addAction(
+            Notification.Action.Builder(
+                Icon.createWithResource(context, iconRes),
+                label,
+                intent,
+            ).build(),
+        )
     }
 }

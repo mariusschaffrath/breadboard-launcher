@@ -145,7 +145,11 @@ object CrashSelfHeal {
         PendingIntent.getBroadcast(
             context, 0,
             Intent(context, CrashHeartbeatReceiver::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT
+            },
         )
 
     fun autoReloadEnabled(context: Context): Boolean =

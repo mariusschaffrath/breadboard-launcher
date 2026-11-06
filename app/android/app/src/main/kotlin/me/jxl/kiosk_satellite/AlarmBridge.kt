@@ -54,15 +54,17 @@ class AlarmBridge(private val context: Context, messenger: BinaryMessenger) {
          *  instead of waiting for its next check. */
         @Volatile var onFire: ((String) -> Unit)? = null
 
-        private fun operation(context: Context, request: Int, kind: String, flags: Int): PendingIntent? =
-            PendingIntent.getBroadcast(
+        private fun operation(context: Context, request: Int, kind: String, flags: Int): PendingIntent? {
+            val immutable = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+            return PendingIntent.getBroadcast(
                 context,
                 request,
                 Intent(context, AlarmReceiver::class.java)
                     .setAction(ACTION_FIRE)
                     .putExtra(EXTRA_KIND, kind),
-                flags or PendingIntent.FLAG_IMMUTABLE,
+                flags or immutable,
             )
+        }
     }
 
     private val channel = MethodChannel(messenger, CHANNEL)
@@ -163,9 +165,10 @@ class AlarmBridge(private val context: Context, messenger: BinaryMessenger) {
         alarmManager.cancel(wake)
         if (ringAt != null) {
             val show = HomeRole.launchIntent(context)?.let {
+                val immutable = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
                 PendingIntent.getActivity(
                     context, REQUEST_SHOW, it,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                    PendingIntent.FLAG_UPDATE_CURRENT or immutable,
                 )
             }
             try {

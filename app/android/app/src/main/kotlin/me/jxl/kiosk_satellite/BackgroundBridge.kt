@@ -54,8 +54,9 @@ class BackgroundBridge(
             launch.addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK,
             )
+            val immutable = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
             return PendingIntent.getActivity(
-                context, RESTART_REQUEST, launch, flags or PendingIntent.FLAG_IMMUTABLE,
+                context, RESTART_REQUEST, launch, flags or immutable,
             )
         }
 
