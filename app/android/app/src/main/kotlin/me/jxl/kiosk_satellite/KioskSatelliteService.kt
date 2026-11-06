@@ -558,7 +558,7 @@ class KioskSatelliteService : Service() {
     }
 
     private fun buildNotification(reasons: Set<String>, localized: Context): Notification {
-        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        val pendingIntentFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
         val open = PendingIntent.getActivity(
             this,
             0,
@@ -566,7 +566,7 @@ class KioskSatelliteService : Service() {
                 ?: Intent(this, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
                 },
-            flags,
+            pendingIntentFlags,
         )
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(localized.getString(R.string.ks_service_title))
