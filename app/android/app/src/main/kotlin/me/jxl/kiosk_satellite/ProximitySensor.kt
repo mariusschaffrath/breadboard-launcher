@@ -5,6 +5,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -66,7 +67,9 @@ class ProximitySensor(context: Context, messenger: BinaryMessenger) {
     /** The default TYPE_PROXIMITY sensor, else the first dynamic one. */
     private fun findSensor(): Sensor? =
         sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY)
-            ?: sensorManager.getDynamicSensorList(Sensor.TYPE_PROXIMITY).firstOrNull()
+            ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                sensorManager.getDynamicSensorList(Sensor.TYPE_PROXIMITY).firstOrNull()
+            } else null
 
     private fun support(): Map<String, Any?> {
         val s = findSensor()

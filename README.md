@@ -175,6 +175,12 @@ flowchart TD
    * *`NativeAudioOutput.kt`:* Removed direct field instantiation of `AudioRouting.OnRoutingChangedListener` (added in API 24). Extracted listener registration into `NativeAudioRoutingHelper` and guarded behind `Build.VERSION.SDK_INT >= 24`.
    * *`SoundPlayer.kt`:* Moved `enforceRouting` with `android.media.AudioRouting` into `SoundPlayerApi28Helper` and generalized signature to prevent Dalvik class verification errors on API 22.
    * *`MicRecorder.kt`:* Guarded `rec.preferredDevice` and `rec.routedDevice` behind `Build.VERSION.SDK_INT >= Build.VERSION_CODES.M`.
+4. **BroadcastReceiver Compatibility (`ReceiverCompat.kt`):**
+   * *Problem:* `androidx.core.content.ContextCompat.registerReceiver` calls `PermissionChecker.checkSelfPermission` when export flags are passed on older Android versions, which invokes `AppOpsManager.permissionToOp(permission)` (added in API 23). On Android 5.1 (API 22), this caused an immediate fatal `NoSuchMethodError`.
+   * *Fix:* Created `ReceiverCompat` which calls `context.registerReceiver(receiver, filter, flags)` only on Android 13+ (API 33+), and falls back directly to `context.registerReceiver(receiver, filter)` on all older Android versions without touching `AppOpsManager`.
+5. **Sensor Framework API 24 Shims (`LightSensor.kt`, `ProximitySensor.kt`):**
+   * *Problem:* `SensorManager.DynamicSensorCallback` and `getDynamicSensorList` were added in Android 7.0 (API 24). Direct class inheritance caused `NoClassDefFoundError: LightSensor$dynamicCallback$1` on Android 5.1.
+   * *Fix:* Isolated `DynamicSensorCallback` into an `@RequiresApi(Build.VERSION_CODES.N)` helper `DynamicSensorHelper` and guarded all dynamic sensor calls behind `Build.VERSION.SDK_INT >= Build.VERSION_CODES.N`.
 
 ## 3. Configuration & Technical Parameters
 * **Application ID:** `me.jxl.kiosk_satellite`

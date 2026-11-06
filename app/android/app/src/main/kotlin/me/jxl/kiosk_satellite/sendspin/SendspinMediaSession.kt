@@ -23,6 +23,7 @@ import androidx.core.content.ContextCompat
 import me.jxl.kiosk_satellite.HomeRole
 import me.jxl.kiosk_satellite.MainActivity
 import me.jxl.kiosk_satellite.NativeMessages
+import me.jxl.kiosk_satellite.ReceiverCompat
 import me.jxl.kiosk_satellite.R
 import me.jxl.kiosk_satellite.StatusBarIcon
 
@@ -348,11 +349,11 @@ class SendspinMediaSession(
             }
         }
         try {
-            ContextCompat.registerReceiver(
+            ReceiverCompat.register(
                 context,
                 created,
                 IntentFilter(ACTION_COMMAND),
-                ContextCompat.RECEIVER_NOT_EXPORTED,
+                exported = false,
             )
             receiver = created
         } catch (e: Exception) {

@@ -5,9 +5,11 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import androidx.annotation.RequiresApi
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
@@ -69,7 +71,9 @@ class LightSensor(context: Context, messenger: BinaryMessenger) {
     /** The default TYPE_LIGHT sensor, else the first dynamic one. */
     private fun findSensor(): Sensor? =
         sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
-            ?: sensorManager.getDynamicSensorList(Sensor.TYPE_LIGHT).firstOrNull()
+            ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                sensorManager.getDynamicSensorList(Sensor.TYPE_LIGHT).firstOrNull()
+            } else null
 
     private fun diagnostic(message: String, warning: Boolean = false) {
         methods.invokeMethod("diagnostic", mapOf(
@@ -81,27 +85,10 @@ class LightSensor(context: Context, messenger: BinaryMessenger) {
     private fun describe(s: Sensor): String =
         "name=${s.name}, vendor=${s.vendor}, type=${s.type} (${s.stringType}), " +
             "reportingMode=${s.reportingMode}, wakeUp=${s.isWakeUpSensor}, " +
-            "dynamic=${s.isDynamicSensor}, minDelay=${s.minDelay} us, " +
+            "dynamic=${if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) s.isDynamicSensor else false}, minDelay=${s.minDelay} us, " +
             "resolution=${s.resolution} lx, maxRange=${s.maximumRange} lx"
 
-    // Delivered on [handler] (the main looper), same thread as the channel
-    // callbacks, so sensor/listener/sink need no locking.
-    private val dynamicCallback = object : SensorManager.DynamicSensorCallback() {
-        override fun onDynamicSensorConnected(connected: Sensor) {
-            if (connected.type != Sensor.TYPE_LIGHT) return
-            if (sensor != null) return
-            reattach()
-        }
-
-        override fun onDynamicSensorDisconnected(disconnected: Sensor) {
-            if (disconnected !== sensor) return
-            diagnostic("disconnected: ${describe(disconnected)}", warning = true)
-            listener?.let { sensorManager.unregisterListener(it) }
-            listener = null
-            sensor = null
-            reattach()
-        }
-    }
+    private var dynamicCallbackToken: Any? = null
 
     /** Point a live stream at whatever light sensor exists now, if any. */
     private fun reattach() {
@@ -167,7 +154,26 @@ class LightSensor(context: Context, messenger: BinaryMessenger) {
     }
 
     init {
-        sensorManager.registerDynamicSensorCallback(dynamicCallback, handler)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            dynamicCallbackToken = DynamicSensorHelper.register(
+                sensorManager,
+                handler,
+                onConnected = { connected ->
+                    if (connected.type == Sensor.TYPE_LIGHT && sensor == null) {
+                        reattach()
+                    }
+                },
+                onDisconnected = { disconnected ->
+                    if (disconnected === sensor) {
+                        diagnostic("disconnected: ${describe(disconnected)}", warning = true)
+                        listener?.let { sensorManager.unregisterListener(it) }
+                        listener = null
+                        sensor = null
+                        reattach()
+                    }
+                },
+            )
+        }
         methods.setMethodCallHandler { call, result ->
             when (call.method) {
                 "hasSensor" -> result.success(findSensor() != null)
@@ -205,8 +211,41 @@ class LightSensor(context: Context, messenger: BinaryMessenger) {
         damper.reset()
         listener?.let { sensorManager.unregisterListener(it) }
         listener = null
-        sensorManager.unregisterDynamicSensorCallback(dynamicCallback)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            dynamicCallbackToken?.let {
+                DynamicSensorHelper.unregister(sensorManager, it)
+                dynamicCallbackToken = null
+            }
+        }
         methods.setMethodCallHandler(null)
         events.setStreamHandler(null)
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.N)
+private object DynamicSensorHelper {
+    fun register(
+        sensorManager: SensorManager,
+        handler: Handler,
+        onConnected: (Sensor) -> Unit,
+        onDisconnected: (Sensor) -> Unit,
+    ): Any {
+        val cb = object : SensorManager.DynamicSensorCallback() {
+            override fun onDynamicSensorConnected(connected: Sensor) {
+                onConnected(connected)
+            }
+
+            override fun onDynamicSensorDisconnected(disconnected: Sensor) {
+                onDisconnected(disconnected)
+            }
+        }
+        sensorManager.registerDynamicSensorCallback(cb, handler)
+        return cb
+    }
+
+    fun unregister(sensorManager: SensorManager, callback: Any) {
+        if (callback is SensorManager.DynamicSensorCallback) {
+            sensorManager.unregisterDynamicSensorCallback(callback)
+        }
     }
 }

@@ -48,14 +48,14 @@ class VoiceIntentBridge(
 
     init {
         try {
-            ContextCompat.registerReceiver(
+            ReceiverCompat.register(
                 context,
                 receiver,
                 IntentFilter().apply {
                     addAction(ACTION_WAKE)
                     addAction(ACTION_CANCEL)
                 },
-                ContextCompat.RECEIVER_EXPORTED,
+                exported = true,
             )
         } catch (e: Exception) {
             Log.w("kiosk_satellite", "voice intent receiver failed", e)

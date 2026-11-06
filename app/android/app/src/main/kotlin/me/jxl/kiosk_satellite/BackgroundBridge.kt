@@ -678,19 +678,19 @@ class BackgroundBridge(
     // because ACTION_DOWNLOAD_COMPLETE is not a protected system broadcast;
     // NOT_EXPORTED would silently never receive it on Android 14+.
     init {
-        ContextCompat.registerReceiver(
+        ReceiverCompat.register(
             context,
             downloadReceiver,
             IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
-            ContextCompat.RECEIVER_EXPORTED,
+            exported = true,
         )
         // VOLUME_CHANGED_ACTION is a system broadcast: NOT_EXPORTED
         // receivers still get those, and nothing else may spoof it.
-        ContextCompat.registerReceiver(
+        ReceiverCompat.register(
             context,
             volumeReceiver,
             IntentFilter("android.media.VOLUME_CHANGED_ACTION"),
-            ContextCompat.RECEIVER_NOT_EXPORTED,
+            exported = false,
         )
         // Software-gain changes on fixed-volume devices never hit the
         // system broadcast above (there is no stream change to announce),
@@ -700,11 +700,11 @@ class BackgroundBridge(
             channel.invokeMethod("volumeChanged", null)
         }
         // ACTION_NEXT_ALARM_CLOCK_CHANGED is a protected system broadcast.
-        ContextCompat.registerReceiver(
+        ReceiverCompat.register(
             context,
             alarmReceiver,
             IntentFilter(AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED),
-            ContextCompat.RECEIVER_NOT_EXPORTED,
+            exported = false,
         )
         try {
             context.contentResolver.registerContentObserver(
@@ -717,21 +717,21 @@ class BackgroundBridge(
         }
         // Screen on/off are protected system broadcasts, and they are only
         // ever delivered to receivers registered in code like this one.
-        ContextCompat.registerReceiver(
+        ReceiverCompat.register(
             context,
             screenReceiver,
             IntentFilter().apply {
                 addAction(Intent.ACTION_SCREEN_ON)
                 addAction(Intent.ACTION_SCREEN_OFF)
             },
-            ContextCompat.RECEIVER_NOT_EXPORTED,
+            exported = false,
         )
         // A protected system broadcast. API 26 and up, never sent before.
-        ContextCompat.registerReceiver(
+        ReceiverCompat.register(
             context,
             ownerReceiver,
             IntentFilter(DevicePolicyManager.ACTION_DEVICE_OWNER_CHANGED),
-            ContextCompat.RECEIVER_NOT_EXPORTED,
+            exported = false,
         )
         if (Build.VERSION.SDK_INT >= 24) {
             try {
