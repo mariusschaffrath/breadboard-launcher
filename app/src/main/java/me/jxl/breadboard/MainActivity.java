@@ -43,6 +43,11 @@ public class MainActivity extends Activity {
         // Hide Android status bar and navigation bar
         hideSystemUI();
 
+        // Enable Chrome DevTools remote debugging
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
+
         // Load polyfill scripts from assets
         loadPolyfills();
 
@@ -93,6 +98,25 @@ public class MainActivity extends Activity {
                 if (polyfillRawJs != null) {
                     view.evaluateJavascript(polyfillRawJs, null);
                 }
+                view.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        view.evaluateJavascript(
+                            "(function() {"
+                            + "  var ha = document.querySelector('home-assistant');"
+                            + "  var defined = window.customElements && customElements.get('home-assistant');"
+                            + "  console.log('[HA_DIAG] customElements.get(\"home-assistant\"):', !!defined);"
+                            + "  console.log('[HA_DIAG] ha element:', !!ha, 'shadow:', !!(ha && ha.shadowRoot));"
+                            + "  if (ha && ha.hass) {"
+                            + "    console.log('[HA_DIAG] ha.hass connected:', ha.hass.connected, 'user:', ha.hass.user ? ha.hass.user.name : 'no user');"
+                            + "  } else {"
+                            + "    console.log('[HA_DIAG] ha.hass is null/undefined');"
+                            + "  }"
+                            + "})();",
+                            null
+                        );
+                    }
+                }, 6000);
             }
 
             @Override
