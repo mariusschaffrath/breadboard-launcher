@@ -34,19 +34,19 @@ public class CupBoardDrawer extends FrameLayout {
 
         SliderCardView(Context context, String label, String icon, int initialVal, float density) {
             super(context);
-            setOrientation(VERTICAL);
+            setOrientation(LinearLayout.VERTICAL);
             setPadding(Theme.dp(16, density), Theme.dp(14, density), Theme.dp(16, density), Theme.dp(14, density));
             setBackground(Theme.makeGlass(0x33FFFFFF, 0x1AFFFFFF, 18f, density));
 
             LinearLayout top = new LinearLayout(context);
-            top.setOrientation(HORIZONTAL);
+            top.setOrientation(LinearLayout.HORIZONTAL);
 
             TextView lbl = new TextView(context);
             lbl.setText(icon + " " + label);
             lbl.setTypeface(Theme.getDisplayBold(context));
             lbl.setTextSize(12f);
             lbl.setTextColor(Theme.TEXT_MUTED);
-            top.addView(lbl, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+            top.addView(lbl, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
             val = new TextView(context);
             val.setText(initialVal + "%");
@@ -60,7 +60,8 @@ public class CupBoardDrawer extends FrameLayout {
             bar = new SeekBar(context);
             bar.setMax(100);
             bar.setProgress(initialVal);
-            LayoutParams lpBar = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+            LinearLayout.LayoutParams lpBar = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
             lpBar.topMargin = Theme.dp(10, density);
             bar.setLayoutParams(lpBar);
             addView(bar);
@@ -81,14 +82,14 @@ public class CupBoardDrawer extends FrameLayout {
         drawerContent.setBackground(Theme.makeGlass(0xE61C1C24, Theme.GLASS_BORDER, 28f, density));
         drawerContent.setClickable(true); // Don't pass clicks through to scrim
 
-        LayoutParams lpContent = new LayoutParams(Theme.dp(560, density), LayoutParams.WRAP_CONTENT);
+        FrameLayout.LayoutParams lpContent = new FrameLayout.LayoutParams(Theme.dp(560, density), FrameLayout.LayoutParams.WRAP_CONTENT);
         lpContent.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
         lpContent.topMargin = Theme.dp(40, density);
         drawerContent.setLayoutParams(lpContent);
 
         // Header: Title & Close Button
         LinearLayout header = new LinearLayout(context);
-        header.setOrientation(HORIZONTAL);
+        header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView title = new TextView(context);
@@ -96,7 +97,7 @@ public class CupBoardDrawer extends FrameLayout {
         title.setTypeface(Theme.getDisplayBold(context));
         title.setTextSize(20f);
         title.setTextColor(Theme.TEXT_WHITE);
-        header.addView(title, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        header.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
         TextView closeBtn = new TextView(context);
         closeBtn.setText("✕");
@@ -105,14 +106,15 @@ public class CupBoardDrawer extends FrameLayout {
         closeBtn.setGravity(Gravity.CENTER);
         closeBtn.setBackground(Theme.makePill(0x22FFFFFF, 0, density));
         closeBtn.setOnClickListener(v -> close());
-        header.addView(closeBtn, new LayoutParams(Theme.dp(36, density), Theme.dp(36, density)));
+        header.addView(closeBtn, new LinearLayout.LayoutParams(Theme.dp(36, density), Theme.dp(36, density)));
 
         drawerContent.addView(header);
 
         // Dual Sliders: Brightness & Volume
         LinearLayout slidersRow = new LinearLayout(context);
-        slidersRow.setOrientation(HORIZONTAL);
-        LayoutParams lpSliders = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        slidersRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams lpSliders = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lpSliders.topMargin = Theme.dp(24, density);
         slidersRow.setLayoutParams(lpSliders);
 
@@ -148,11 +150,11 @@ public class CupBoardDrawer extends FrameLayout {
             @Override public void onStopTrackingTouch(SeekBar seekBar) {}
         });
 
-        LayoutParams lpCard1 = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
+        LinearLayout.LayoutParams lpCard1 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         lpCard1.rightMargin = Theme.dp(8, density);
         briCard.setLayoutParams(lpCard1);
 
-        LayoutParams lpCard2 = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
+        LinearLayout.LayoutParams lpCard2 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         lpCard2.leftMargin = Theme.dp(8, density);
         volCard.setLayoutParams(lpCard2);
 
@@ -162,8 +164,9 @@ public class CupBoardDrawer extends FrameLayout {
 
         // Quick Scene Toggles Row
         LinearLayout scenesRow = new LinearLayout(context);
-        scenesRow.setOrientation(HORIZONTAL);
-        LayoutParams lpScenes = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        scenesRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams lpScenes = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lpScenes.topMargin = Theme.dp(20, density);
         scenesRow.setLayoutParams(lpScenes);
 
@@ -178,8 +181,8 @@ public class CupBoardDrawer extends FrameLayout {
             } catch (Exception e) {}
         });
 
-        scenesRow.addView(btnNight, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
-        scenesRow.addView(btnOff, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        scenesRow.addView(btnNight, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        scenesRow.addView(btnOff, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         drawerContent.addView(scenesRow);
 
         addView(drawerContent);
@@ -194,7 +197,7 @@ public class CupBoardDrawer extends FrameLayout {
         btn.setGravity(Gravity.CENTER);
         btn.setPadding(Theme.dp(12, density), Theme.dp(12, density), Theme.dp(12, density), Theme.dp(12, density));
         btn.setBackground(Theme.makeGlass(bg, border, 16f, density));
-        LayoutParams lp = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         lp.setMargins(Theme.dp(4, density), 0, Theme.dp(4, density), 0);
         btn.setLayoutParams(lp);
         return btn;
