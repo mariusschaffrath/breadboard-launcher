@@ -250,6 +250,9 @@ if (!window.structuredClone) {
 (function() {
   function enforceKiosk() {
     try {
+      if (document.body && document.body.style.backgroundColor !== '#000000') {
+        document.body.style.backgroundColor = '#000000';
+      }
       var ha = document.querySelector('home-assistant');
       if (!ha || !ha.shadowRoot) return;
       var main = ha.shadowRoot.querySelector('home-assistant-main');
@@ -261,9 +264,18 @@ if (!window.structuredClone) {
         var header = drawer.querySelector('app-header, ha-top-app-bar');
         if (header && header.style.display !== 'none') header.style.display = 'none';
       }
+      var ppr = main.shadowRoot.querySelector('partial-panel-resolver');
+      var lovelace = ppr && ppr.querySelector('ha-panel-lovelace');
+      var root = lovelace && lovelace.shadowRoot && lovelace.shadowRoot.querySelector('hui-root');
+      if (root && root.shadowRoot) {
+        var huiHeader = root.shadowRoot.querySelector('.header');
+        if (huiHeader && huiHeader.style.display !== 'none') huiHeader.style.display = 'none';
+        var toolbar = root.shadowRoot.querySelector('.toolbar');
+        if (toolbar && toolbar.style.display !== 'none') toolbar.style.display = 'none';
+      }
     } catch(e) {}
   }
-  setInterval(enforceKiosk, 400);
+  setInterval(enforceKiosk, 250);
 })();
 
 console.log('[HomeView] Chromium 59 compatibility shims ready.');

@@ -197,10 +197,13 @@ public class MainActivity extends Activity {
                     html = html.replace("import(", "(function(){return Promise.resolve();})(");
 
                     if (polyfillScript != null) {
+                        String darkStyle = "<style>html,body{background-color:#000000 !important;color:#FFFFFF !important;}"
+                            + ".header,.toolbar,app-header,ha-sidebar,ha-top-app-bar{display:none !important;}</style>";
+                        String inject = polyfillScript + darkStyle;
                         if (html.contains("<head>")) {
-                            html = html.replaceFirst("<head>", "<head>" + polyfillScript);
+                            html = html.replaceFirst("<head>", "<head>" + inject);
                         } else {
-                            html = polyfillScript + html;
+                            html = inject + html;
                         }
                     }
 
