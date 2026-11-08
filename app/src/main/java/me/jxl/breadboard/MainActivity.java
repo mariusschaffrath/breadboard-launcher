@@ -109,10 +109,14 @@ public class MainActivity extends Activity {
             @TargetApi(Build.VERSION_CODES.LOLLIPOP)
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                if (request != null && request.isForMainFrame() && "GET".equalsIgnoreCase(request.getMethod())) {
+                if (request != null && "GET".equalsIgnoreCase(request.getMethod())) {
                     String url = request.getUrl().toString();
-                    if (isDashboardHtmlUrl(url)) {
+                    if (request.isForMainFrame() && isDashboardHtmlUrl(url)) {
                         WebResourceResponse res = injectPolyfills(url);
+                        if (res != null) return res;
+                    } else if (url.contains("/frontend_es5/") && url.endsWith(".js")
+                            && !url.contains("core.") && !url.contains("app.")) {
+                        WebResourceResponse res = patchJsResource(url);
                         if (res != null) return res;
                     }
                 }
@@ -124,6 +128,10 @@ public class MainActivity extends Activity {
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
                     if (isDashboardHtmlUrl(url)) {
                         WebResourceResponse res = injectPolyfills(url);
+                        if (res != null) return res;
+                    } else if (url != null && url.contains("/frontend_es5/") && url.endsWith(".js")
+                            && !url.contains("core.") && !url.contains("app.")) {
+                        WebResourceResponse res = patchJsResource(url);
                         if (res != null) return res;
                     }
                 }
@@ -176,6 +184,41 @@ public class MainActivity extends Activity {
                     return new WebResourceResponse("text/html", "UTF-8", new ByteArrayInputStream(bytes));
                 } catch (Exception e) {
                     Log.e(TAG, "Error in injectPolyfills: " + e.getMessage(), e);
+                    return null;
+                }
+            }
+
+            private WebResourceResponse patchJsResource(String url) {
+                try {
+                    HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+                    conn.setRequestMethod("GET");
+                    if (userAgent != null) {
+                        conn.setRequestProperty("User-Agent", userAgent);
+                    }
+                    conn.setConnectTimeout(8000);
+                    conn.setReadTimeout(8000);
+                    int code = conn.getResponseCode();
+                    if (code != 200) {
+                        return null;
+                    }
+
+                    InputStream is = conn.getInputStream();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line).append("\n");
+                    }
+                    reader.close();
+                    String js = sb.toString();
+
+                    // Strip BigInt literal suffix (e.g. 0n, 10n) which crashes Chrome 59 V8 tokenizer
+                    js = js.replaceAll("(?<=\\d)n(?=\\W|$)", "");
+
+                    byte[] bytes = js.getBytes("UTF-8");
+                    return new WebResourceResponse("application/javascript", "UTF-8", new ByteArrayInputStream(bytes));
+                } catch (Exception e) {
+                    Log.e(TAG, "Error patching JS chunk: " + e.getMessage(), e);
                     return null;
                 }
             }
