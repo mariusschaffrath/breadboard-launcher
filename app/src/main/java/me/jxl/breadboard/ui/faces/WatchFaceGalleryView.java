@@ -22,6 +22,10 @@ public class WatchFaceGalleryView extends FrameLayout {
         void onOpenMusic();
     }
 
+    public interface OnRecognizeTriggerListener {
+        void onTriggerRecognize();
+    }
+
     private final float density;
     private ViewFlipper flipper;
     private LinearLayout dotsContainer;
@@ -29,6 +33,7 @@ public class WatchFaceGalleryView extends FrameLayout {
     private final List<WatchFaceBaseView> faces = new ArrayList<>();
     private GestureDetector gestureDetector;
     private OnOpenMusicListener musicListener;
+    private OnRecognizeTriggerListener recognizeListener;
 
     public WatchFaceGalleryView(Context context) {
         super(context);
@@ -40,11 +45,22 @@ public class WatchFaceGalleryView extends FrameLayout {
         this.musicListener = listener;
     }
 
+    public void setOnRecognizeTriggerListener(OnRecognizeTriggerListener listener) {
+        this.recognizeListener = listener;
+    }
+
     private void init(Context context) {
         setBackgroundColor(0xFF000000);
 
         flipper = new ViewFlipper(context);
         addView(flipper, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+
+        // 0. Dad & Son Photo Face (Official Marketing Reference)
+        DadSonFaceView dadSon = new DadSonFaceView(context);
+        dadSon.setOnRecognizeTriggerListener(() -> {
+            if (recognizeListener != null) recognizeListener.onTriggerRecognize();
+        });
+        addFace(dadSon);
 
         // 1. Modular Quad
         ModularFaceView modular = new ModularFaceView(context);

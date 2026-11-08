@@ -12,6 +12,10 @@ import me.jxl.breadboard.net.HassClient;
 import me.jxl.breadboard.ui.AppleMusicView;
 import me.jxl.breadboard.ui.CupBoardDrawer;
 import me.jxl.breadboard.ui.HomeDashboardView;
+import me.jxl.breadboard.ui.MariusHomeView;
+import me.jxl.breadboard.ui.RecipeView;
+import me.jxl.breadboard.ui.RecognizingView;
+import me.jxl.breadboard.ui.SiriView;
 import me.jxl.breadboard.ui.SystemStatusBarView;
 import me.jxl.breadboard.ui.Theme;
 import me.jxl.breadboard.ui.faces.WatchFaceGalleryView;
@@ -23,8 +27,12 @@ public class MainActivity extends Activity {
     private FrameLayout contentContainer;
 
     private SystemStatusBarView statusBar;
-    private HomeDashboardView homeDashboard;
     private WatchFaceGalleryView watchFaceGallery;
+    private RecognizingView recognizingView;
+    private MariusHomeView mariusHomeView;
+    private SiriView siriView;
+    private RecipeView recipeView;
+    private HomeDashboardView homeDashboard;
     private AppleMusicView appleMusicView;
     private CupBoardDrawer cupBoardDrawer;
 
@@ -43,27 +51,22 @@ public class MainActivity extends Activity {
         rootContainer = new FrameLayout(this);
         rootContainer.setBackgroundColor(Color.BLACK);
 
-        // 1. Content Container (Home, Watchfaces, Music)
+        // 1. Content Container (Full Edge-to-Edge)
         contentContainer = new FrameLayout(this);
         FrameLayout.LayoutParams lpContent = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
-        // Add top padding for the floating status bar
-        contentContainer.setPadding(0, Theme.dp(56, density), 0, 0);
         rootContainer.addView(contentContainer, lpContent);
 
-        // Initialize Views
-        homeDashboard = new HomeDashboardView(this);
+        // 2. Initialize Views
         watchFaceGallery = new WatchFaceGalleryView(this);
+        recognizingView = new RecognizingView(this);
+        mariusHomeView = new MariusHomeView(this);
+        siriView = new SiriView(this);
+        recipeView = new RecipeView(this);
+        homeDashboard = new HomeDashboardView(this);
         appleMusicView = new AppleMusicView(this);
 
-        // Connect Mini Music Widget in WatchFace and Dashboard to Apple Music Tab
-        watchFaceGallery.setOnOpenMusicListener(() -> statusBar.setActiveTab(SystemStatusBarView.TAB_MUSIC));
-        homeDashboard.setOnOpenMusicListener(() -> statusBar.setActiveTab(SystemStatusBarView.TAB_MUSIC));
-
-        // Default to Watch Face Gallery
-        showView(watchFaceGallery);
-
-        // 2. Floating System Status Bar at Top
+        // Floating System Status Bar at Top
         statusBar = new SystemStatusBarView(this);
         FrameLayout.LayoutParams lpStatus = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
@@ -73,17 +76,72 @@ public class MainActivity extends Activity {
         lpStatus.rightMargin = Theme.dp(20, density);
         rootContainer.addView(statusBar, lpStatus);
 
-        // Handle Status Bar Tab Switching
+        // Navigation Interactions
+        // A. Tap on WatchFace (DadSon or any other) -> starts recognizing
+        watchFaceGallery.setOnRecognizeTriggerListener(() -> {
+            showView(recognizingView, false);
+            recognizingView.startRecognitionFlow();
+        });
+        watchFaceGallery.setOnOpenMusicListener(() -> {
+            statusBar.setActiveTab(SystemStatusBarView.TAB_MUSIC);
+            showView(appleMusicView, true);
+        });
+
+        // B. Recognition Complete -> opens Marius Home
+        recognizingView.setOnRecognizedListener(() -> showView(mariusHomeView, false));
+
+        // C. Marius Home Navigation
+        mariusHomeView.setOnNavigateListener(new MariusHomeView.OnNavigateListener() {
+            @Override
+            public void onOpenMusic() {
+                statusBar.setActiveTab(SystemStatusBarView.TAB_MUSIC);
+                showView(appleMusicView, true);
+            }
+
+            @Override
+            public void onOpenHome() {
+                statusBar.setActiveTab(SystemStatusBarView.TAB_HOME);
+                showView(homeDashboard, true);
+            }
+
+            @Override
+            public void onOpenRecipe() {
+                showView(recipeView, false);
+            }
+
+            @Override
+            public void onTriggerSiri() {
+                showView(siriView, false);
+                siriView.startSiriFlow();
+            }
+
+            @Override
+            public void onResetToGallery() {
+                statusBar.setActiveTab(SystemStatusBarView.TAB_FACES);
+                showView(watchFaceGallery, false);
+            }
+        });
+
+        // D. Siri & Recipe Dismiss back to Marius Home
+        siriView.setOnDismissListener(() -> showView(mariusHomeView, false));
+        recipeView.setOnDismissListener(() -> showView(mariusHomeView, false));
+
+        homeDashboard.setOnOpenMusicListener(() -> {
+            statusBar.setActiveTab(SystemStatusBarView.TAB_MUSIC);
+            showView(appleMusicView, true);
+        });
+
+        // Status Bar Tab Switching
         statusBar.setOnTabChangeListener(tabIndex -> {
             switch (tabIndex) {
                 case SystemStatusBarView.TAB_HOME:
-                    showView(homeDashboard);
+                    showView(homeDashboard, true);
                     break;
                 case SystemStatusBarView.TAB_FACES:
-                    showView(watchFaceGallery);
+                    showView(watchFaceGallery, false);
                     break;
                 case SystemStatusBarView.TAB_MUSIC:
-                    showView(appleMusicView);
+                    showView(appleMusicView, true);
                     break;
                 case SystemStatusBarView.TAB_CONTROL:
                     if (cupBoardDrawer != null) {
@@ -93,7 +151,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        // 3. CupBoard Control Center Overlay
+        // 3. CupBoard Control Center Drawer
         cupBoardDrawer = new CupBoardDrawer(this);
         FrameLayout.LayoutParams lpDrawer = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
@@ -101,15 +159,29 @@ public class MainActivity extends Activity {
 
         setContentView(rootContainer);
 
-        // Connect to Home Assistant WebSocket
+        // Default screen: Watch Face Gallery (starting on Dad & Son)
+        showView(watchFaceGallery, false);
+
+        // Connect Home Assistant
         HassClient.getInstance().start();
     }
 
-    private void showView(View target) {
+    private void showView(View target, boolean showStatusBar) {
         contentContainer.removeAllViews();
         target.setAlpha(0f);
-        contentContainer.addView(target, new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
+        // For views that use status bar, adjust top margin
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+        if (showStatusBar) {
+            lp.topMargin = Theme.dp(56, density);
+            statusBar.setVisibility(View.VISIBLE);
+        } else {
+            lp.topMargin = 0;
+            statusBar.setVisibility(View.GONE);
+        }
+
+        contentContainer.addView(target, lp);
         target.animate().alpha(1f).setDuration(220).start();
     }
 
@@ -146,9 +218,20 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        // If CupBoard is open, close it; otherwise prevent accidental launcher exit
         if (cupBoardDrawer != null && cupBoardDrawer.isOpen()) {
             cupBoardDrawer.close();
+            return;
+        }
+        // Return to Marius Home or Watch Face Gallery on Back press
+        if (contentContainer.getChildCount() > 0) {
+            View current = contentContainer.getChildAt(0);
+            if (current == siriView || current == recipeView || current == homeDashboard || current == appleMusicView) {
+                showView(mariusHomeView, false);
+                return;
+            } else if (current == mariusHomeView || current == recognizingView) {
+                showView(watchFaceGallery, false);
+                return;
+            }
         }
     }
 }

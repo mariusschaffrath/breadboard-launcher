@@ -109,7 +109,7 @@ public class AppleMusicView extends FrameLayout implements HassClient.EntityList
 
         // Track Title
         trackTitleView = new TextView(context);
-        trackTitleView.setText("FEVER DREAM");
+        trackTitleView.setText(me.jxl.breadboard.models.HomeViewFixtures.SONG_TITLE);
         trackTitleView.setTypeface(Theme.getDisplayBold(context));
         trackTitleView.setTextSize(26f);
         trackTitleView.setTextColor(Theme.TEXT_WHITE);
@@ -118,7 +118,7 @@ public class AppleMusicView extends FrameLayout implements HassClient.EntityList
 
         // Artist Name
         artistView = new TextView(context);
-        artistView.setText("Alex Warren");
+        artistView.setText(me.jxl.breadboard.models.HomeViewFixtures.SONG_ARTIST + " • Hurry Up, We're Dreaming");
         artistView.setTypeface(Theme.getRoundedBold(context));
         artistView.setTextSize(17f);
         artistView.setTextColor(Theme.TEXT_SECONDARY);
@@ -139,13 +139,13 @@ public class AppleMusicView extends FrameLayout implements HassClient.EntityList
         LinearLayout timeRow = new LinearLayout(context);
         timeRow.setOrientation(LinearLayout.HORIZONTAL);
         timeElapsedView = new TextView(context);
-        timeElapsedView.setText("01:35");
+        timeElapsedView.setText("2:03");
         timeElapsedView.setTypeface(Theme.getRoundedBold(context));
         timeElapsedView.setTextSize(12f);
         timeElapsedView.setTextColor(Theme.TEXT_MUTED);
 
         timeRemainingView = new TextView(context);
-        timeRemainingView.setText("-02:09");
+        timeRemainingView.setText("-0:47");
         timeRemainingView.setTypeface(Theme.getRoundedBold(context));
         timeRemainingView.setTextSize(12f);
         timeRemainingView.setTextColor(Theme.TEXT_MUTED);
