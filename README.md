@@ -215,3 +215,15 @@ flowchart TD
 * **Install to Fire 7:** `adb -s G000KL0265240H5P install -r /tmp/BreadBoard-armeabi-v7a.apk`
 * **Launch & Verify:** `adb -s G000KL0265240H5P shell am start -n me.jxl.kiosk_satellite/.MainActivity`
 
+
+---
+
+## 🚀 Chromium 59 Compatibility Engine (Release v2.0.0-native)
+
+Der native BreadBoard Launcher implementiert ein In-Memory HTTP-Interzeptions- und Polyfill-System für Android 5.1 / Chromium 59:
+* **Token-Injektion:** Automatischer Login über `hassTokens` im `localStorage`.
+* **ES5 Custom Elements Adapter:** Korrigiert Constructor-Lifecycle für Custom Elements.
+* **Stream-Patching:**
+  * Regex-Bereinigung von ES2020 BigInt Literals (`0n`, `10n`).
+  * Laufzeit-Korrektur des Lit-html `h < s.length` Iterationsfehlers für `button-card`.
+* **Kiosk-Enforcement:** Aktives Shadow DOM Trimming von Header, Toolbar und Sidebar.
