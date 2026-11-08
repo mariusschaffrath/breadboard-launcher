@@ -5,8 +5,10 @@ import android.app.Activity;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.ConsoleMessage;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -23,34 +25,13 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 public class MainActivity extends Activity {
-    private WebView webView;
+    private static final String TAG = "HomeView";
     private static final String DASHBOARD_URL = "http://192.168.178.131:8123/apple-homeview/home?kiosk";
-    private static final String HA_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkNzk0MWVhOWQ5OWU0YzhjOTc0YjU5NjE4N2Q1YjI0OSIsImlhdCI6MTc4NzkzMDIzNSwiZXhwIjoyMTAzMjkwMjM1fQ.Hx4GbbBbAPN9ToA2opU7wpyIZ5GV1bmgDNHNLswLG9M";
 
-    private static final String POLYFILL_SCRIPT = "<script>"
-        + "try {"
-        + "  if (!window.localStorage.getItem('hassTokens')) {"
-        + "    window.localStorage.setItem('hassTokens', JSON.stringify({"
-        + "      access_token: '" + HA_TOKEN + "',"
-        + "      token_type: 'Bearer',"
-        + "      expires_in: 315360000,"
-        + "      hassUrl: 'http://192.168.178.131:8123'"
-        + "    }));"
-        + "  }"
-        + "} catch(e) {}"
-        + "if (typeof globalThis === 'undefined') { window.globalThis = window; }"
-        + "if (typeof queueMicrotask === 'undefined') { window.queueMicrotask = function(cb) { Promise.resolve().then(cb); }; }"
-        + "if (window.HTMLSlotElement && !HTMLSlotElement.prototype.assignedElements) {"
-        + "  HTMLSlotElement.prototype.assignedElements = function(opts) {"
-        + "    return this.assignedNodes(opts).filter(function(n) { return n.nodeType === 1; });"
-        + "  };"
-        + "}"
-        + "var _origScroll = window.scrollTo;"
-        + "window.scrollTo = function(x, y) {"
-        + "  if (typeof x === 'object' && x !== null) { _origScroll.call(this, x.left || 0, x.top || 0); }"
-        + "  else { _origScroll.apply(this, arguments); }"
-        + "};"
-        + "</script>";
+    private WebView webView;
+    private String userAgent;
+    private String polyfillScript;
+    private String polyfillRawJs;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,6 +42,9 @@ public class MainActivity extends Activity {
         
         // Hide Android status bar and navigation bar
         hideSystemUI();
+
+        // Load polyfill scripts from assets
+        loadPolyfills();
 
         FrameLayout layout = new FrameLayout(this);
         layout.setBackgroundColor(Color.BLACK);
@@ -80,18 +64,40 @@ public class MainActivity extends Activity {
         s.setBlockNetworkLoads(false);
         s.setUseWideViewPort(true);
         s.setLoadWithOverviewMode(true);
+        s.setDisplayZoomControls(false);
+        s.setBuiltInZoomControls(false);
+        s.setSupportZoom(false);
+
+        // Cache user agent string safely on UI thread
+        userAgent = s.getUserAgentString();
 
         webView.setBackgroundColor(Color.BLACK);
-        webView.setWebChromeClient(new WebChromeClient());
+        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        webView.setHorizontalScrollBarEnabled(false);
+        webView.setVerticalScrollBarEnabled(false);
+
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage cm) {
+                Log.i("HomeViewJS", "[" + cm.messageLevel() + "] " + cm.message()
+                    + " -- Line " + cm.lineNumber() + " (" + cm.sourceId() + ")");
+                return true;
+            }
+        });
+
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 hideSystemUI();
+                if (polyfillRawJs != null) {
+                    view.evaluateJavascript(polyfillRawJs, null);
+                }
             }
 
             @Override
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                Log.w(TAG, "WebView error: " + description + " (" + errorCode + "), retrying in 5s...");
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
@@ -100,32 +106,51 @@ public class MainActivity extends Activity {
                 }, 5000);
             }
 
-            @Override
-            public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
-                if (url.contains("/apple-homeview") || url.equals("http://192.168.178.131:8123/") || url.contains("/auth/token")) {
-                    WebResourceResponse res = injectPolyfills(view, url);
-                    if (res != null) return res;
-                }
-                return super.shouldInterceptRequest(view, url);
-            }
-
             @TargetApi(Build.VERSION_CODES.LOLLIPOP)
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                String url = request.getUrl().toString();
-                if (url.contains("/apple-homeview") || url.equals("http://192.168.178.131:8123/")) {
-                    WebResourceResponse res = injectPolyfills(view, url);
-                    if (res != null) return res;
+                if (request != null && request.isForMainFrame() && "GET".equalsIgnoreCase(request.getMethod())) {
+                    String url = request.getUrl().toString();
+                    if (isDashboardHtmlUrl(url)) {
+                        WebResourceResponse res = injectPolyfills(url);
+                        if (res != null) return res;
+                    }
                 }
                 return super.shouldInterceptRequest(view, request);
             }
 
-            private WebResourceResponse injectPolyfills(WebView view, String url) {
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+                    if (isDashboardHtmlUrl(url)) {
+                        WebResourceResponse res = injectPolyfills(url);
+                        if (res != null) return res;
+                    }
+                }
+                return super.shouldInterceptRequest(view, url);
+            }
+
+            private boolean isDashboardHtmlUrl(String url) {
+                if (url == null) return false;
+                return url.startsWith("http://192.168.178.131:8123/apple-homeview")
+                    || url.equals("http://192.168.178.131:8123/")
+                    || url.equals(DASHBOARD_URL);
+            }
+
+            private WebResourceResponse injectPolyfills(String url) {
                 try {
                     HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-                    conn.setRequestProperty("User-Agent", view.getSettings().getUserAgentString());
+                    conn.setRequestMethod("GET");
+                    if (userAgent != null) {
+                        conn.setRequestProperty("User-Agent", userAgent);
+                    }
                     conn.setConnectTimeout(8000);
                     conn.setReadTimeout(8000);
+                    int code = conn.getResponseCode();
+                    if (code != 200) {
+                        return null;
+                    }
+
                     InputStream is = conn.getInputStream();
                     BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
                     StringBuilder sb = new StringBuilder();
@@ -135,20 +160,47 @@ public class MainActivity extends Activity {
                     }
                     reader.close();
                     String html = sb.toString();
-                    if (html.contains("<head>")) {
-                        html = html.replaceFirst("<head>", "<head>" + POLYFILL_SCRIPT);
-                    } else {
-                        html = POLYFILL_SCRIPT + html;
+
+                    // Neutralize dynamic import calls in inline scripts that crash Chrome 59 parser
+                    html = html.replace("import(\"/browser_mod.js", "// import(\"/browser_mod.js");
+                    html = html.replace("import(\"/hacsfiles/iconset.js", "// import(\"/hacsfiles/iconset.js");
+
+                    if (polyfillScript != null) {
+                        if (html.contains("<head>")) {
+                            html = html.replaceFirst("<head>", "<head>" + polyfillScript);
+                        } else {
+                            html = polyfillScript + html;
+                        }
                     }
+
                     byte[] bytes = html.getBytes("UTF-8");
                     return new WebResourceResponse("text/html", "UTF-8", new ByteArrayInputStream(bytes));
                 } catch (Exception e) {
+                    Log.e(TAG, "Error in injectPolyfills: " + e.getMessage(), e);
                     return null;
                 }
             }
         });
 
         webView.loadUrl(DASHBOARD_URL);
+    }
+
+    private void loadPolyfills() {
+        try {
+            InputStream is = getAssets().open("polyfills.js");
+            BufferedReader r = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = r.readLine()) != null) {
+                sb.append(line).append("\n");
+            }
+            r.close();
+            polyfillRawJs = sb.toString();
+            polyfillScript = "<script>\n" + polyfillRawJs + "\n</script>";
+            Log.i(TAG, "Loaded polyfills.js (" + polyfillRawJs.length() + " chars)");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to load polyfills.js from assets: " + e.getMessage(), e);
+        }
     }
 
     private void hideSystemUI() {
