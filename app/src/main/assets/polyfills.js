@@ -1,6 +1,14 @@
 // BreadBoard Launcher - Apple HomeView Polyfills for Chromium 59 / Android 5.1
 console.log('[HomeView] Initializing Chromium 59 compatibility shims...');
 
+// Error & Rejection Stack Trace Logger
+window.addEventListener('error', function(e) {
+  console.error('[UNCAUGHT_ERROR]', e.message, 'at', e.filename, 'line', e.lineno, 'col', e.colno, e.error ? e.error.stack : '');
+});
+window.addEventListener('unhandledrejection', function(e) {
+  console.error('[UNHANDLED_REJECTION]', e.reason, e.reason && e.reason.stack ? e.reason.stack : '');
+});
+
 // 1. Home Assistant Authentication Token Injection
 try {
   var haTokens = {
@@ -37,7 +45,39 @@ if (typeof queueMicrotask === 'undefined') {
   }
 })();
 
-// 4. HTMLSlotElement & Element assignedElements
+// 4. Safe Object utilities (prevents "Cannot convert undefined or null to object")
+(function() {
+  if (Object.values) {
+    var _origValues = Object.values;
+    Object.values = function(obj) {
+      if (obj === null || obj === undefined) return [];
+      try { return _origValues.call(Object, obj); } catch(e) { return []; }
+    };
+  }
+  if (Object.entries) {
+    var _origEntries = Object.entries;
+    Object.entries = function(obj) {
+      if (obj === null || obj === undefined) return [];
+      try { return _origEntries.call(Object, obj); } catch(e) { return []; }
+    };
+  }
+  if (Object.keys) {
+    var _origKeys = Object.keys;
+    Object.keys = function(obj) {
+      if (obj === null || obj === undefined) return [];
+      try { return _origKeys.call(Object, obj); } catch(e) { return []; }
+    };
+  }
+  if (Object.assign) {
+    var _origAssign = Object.assign;
+    Object.assign = function(target) {
+      if (target === null || target === undefined) target = {};
+      return _origAssign.apply(Object, arguments);
+    };
+  }
+})();
+
+// 5. HTMLSlotElement & Element assignedElements
 if (window.HTMLSlotElement && !HTMLSlotElement.prototype.assignedElements) {
   HTMLSlotElement.prototype.assignedElements = function(opts) {
     return this.assignedNodes(opts).filter(function(n) { return n.nodeType === 1; });
@@ -51,7 +91,7 @@ if (window.Element && !Element.prototype.assignedElements) {
   };
 }
 
-// 5. Safe scrollTo & scrollBy for both Window and Element
+// 6. Safe scrollTo & scrollBy for both Window and Element
 (function() {
   function safeScroll(orig) {
     return function(x, y) {
@@ -76,7 +116,7 @@ if (window.Element && !Element.prototype.assignedElements) {
   }
 })();
 
-// 6. ResizeObserver Polyfill
+// 7. ResizeObserver Polyfill
 if (!window.ResizeObserver) {
   window.ResizeObserver = function(callback) {
     this.callback = callback;
@@ -131,7 +171,7 @@ if (!window.ResizeObserver) {
   };
 }
 
-// 7. Promise.allSettled
+// 8. Promise.allSettled
 if (!Promise.allSettled) {
   Promise.allSettled = function(promises) {
     return Promise.all(promises.map(function(p) {
@@ -143,7 +183,7 @@ if (!Promise.allSettled) {
   };
 }
 
-// 8. String.prototype.replaceAll
+// 9. String.prototype.replaceAll
 if (!String.prototype.replaceAll) {
   String.prototype.replaceAll = function(str, newStr) {
     if (Object.prototype.toString.call(str).toLowerCase() === '[object regexp]') {
@@ -153,7 +193,7 @@ if (!String.prototype.replaceAll) {
   };
 }
 
-// 9. Array & String .at
+// 10. Array & String .at
 if (!Array.prototype.at) {
   Array.prototype.at = function(n) {
     n = Math.trunc(n) || 0;
@@ -171,7 +211,7 @@ if (!String.prototype.at) {
   };
 }
 
-// 10. Array flat & flatMap
+// 11. Array flat & flatMap
 if (!Array.prototype.flat) {
   Array.prototype.flat = function(depth) {
     var d = depth === undefined ? 1 : Math.floor(depth);
@@ -189,7 +229,7 @@ if (!Array.prototype.flatMap) {
   };
 }
 
-// 11. Object.hasOwn & Object.fromEntries & structuredClone
+// 12. Object.hasOwn & Object.fromEntries & structuredClone
 if (!Object.hasOwn) {
   Object.hasOwn = function(obj, prop) {
     return Object.prototype.hasOwnProperty.call(obj, prop);
@@ -206,7 +246,7 @@ if (!window.structuredClone) {
   window.structuredClone = function(o) { return JSON.parse(JSON.stringify(o)); };
 }
 
-// 12. Active Kiosk Enforcer (cleans up any stray UI elements from Shadow DOM)
+// 13. Active Kiosk Enforcer (cleans up any stray UI elements from Shadow DOM)
 (function() {
   function enforceKiosk() {
     try {
