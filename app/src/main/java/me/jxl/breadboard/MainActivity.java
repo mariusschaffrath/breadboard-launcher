@@ -162,8 +162,7 @@ public class MainActivity extends Activity {
                     String html = sb.toString();
 
                     // Neutralize dynamic import calls in inline scripts that crash Chrome 59 parser
-                    html = html.replace("import(\"/browser_mod.js", "// import(\"/browser_mod.js");
-                    html = html.replace("import(\"/hacsfiles/iconset.js", "// import(\"/hacsfiles/iconset.js");
+                    html = html.replace("import(", "(function(){return Promise.resolve();})(");
 
                     if (polyfillScript != null) {
                         if (html.contains("<head>")) {
