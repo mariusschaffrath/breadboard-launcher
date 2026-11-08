@@ -279,3 +279,31 @@ if (!window.structuredClone) {
 })();
 
 console.log('[HomeView] Chromium 59 compatibility shims ready.');
+
+// 14. Dashboard Auto-Recovery (Recovers views if custom cards loaded after initial render)
+(function() {
+  var recoveryCount = 0;
+  var maxRecovery = 5;
+  setInterval(function() {
+    try {
+      if (recoveryCount >= maxRecovery) return;
+      var ha = document.querySelector('home-assistant');
+      if (!ha || !ha.shadowRoot) return;
+      var main = ha.shadowRoot.querySelector('home-assistant-main');
+      if (!main || !main.shadowRoot) return;
+      var ppr = main.shadowRoot.querySelector('partial-panel-resolver');
+      var lovelace = ppr ? ppr.querySelector('ha-panel-lovelace') : main.shadowRoot.querySelector('ha-panel-lovelace');
+      if (!lovelace || !lovelace.shadowRoot) return;
+      var root = lovelace.shadowRoot.querySelector('hui-root');
+      if (!root || !root.shadowRoot) return;
+      var err = root.shadowRoot.querySelector('hui-error-card');
+      if (err && window.customElements && customElements.get('grid-layout') && customElements.get('button-card')) {
+        console.log('[HomeView] Auto-recovering dashboard from error-card...');
+        recoveryCount++;
+        if (typeof root._selectView === 'function') {
+          root._selectView(root._curView, true);
+        }
+      }
+    } catch(e) {}
+  }, 1000);
+})();

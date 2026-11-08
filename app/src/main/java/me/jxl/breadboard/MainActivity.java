@@ -138,8 +138,7 @@ public class MainActivity extends Activity {
                     if (request.isForMainFrame() && isDashboardHtmlUrl(url)) {
                         WebResourceResponse res = injectPolyfills(url);
                         if (res != null) return res;
-                    } else if (url.contains("/frontend_es5/") && url.endsWith(".js")
-                            && !url.contains("core.") && !url.contains("app.")) {
+                    } else if (shouldPatchJs(url)) {
                         WebResourceResponse res = patchJsResource(url);
                         if (res != null) return res;
                     }
@@ -153,8 +152,7 @@ public class MainActivity extends Activity {
                     if (isDashboardHtmlUrl(url)) {
                         WebResourceResponse res = injectPolyfills(url);
                         if (res != null) return res;
-                    } else if (url != null && url.contains("/frontend_es5/") && url.endsWith(".js")
-                            && !url.contains("core.") && !url.contains("app.")) {
+                    } else if (shouldPatchJs(url)) {
                         WebResourceResponse res = patchJsResource(url);
                         if (res != null) return res;
                     }
@@ -197,9 +195,11 @@ public class MainActivity extends Activity {
                     html = html.replace("import(", "(function(){return Promise.resolve();})(");
 
                     if (polyfillScript != null) {
+                        String preloadCards = "<script src=\"/hacsfiles/lovelace-layout-card/layout-card.js\"></script>\n"
+                            + "<script src=\"/hacsfiles/button-card/button-card.js\"></script>\n";
                         String darkStyle = "<style>html,body{background-color:#000000 !important;color:#FFFFFF !important;}"
                             + ".header,.toolbar,app-header,ha-sidebar,ha-top-app-bar{display:none !important;}</style>";
-                        String inject = polyfillScript + darkStyle;
+                        String inject = polyfillScript + preloadCards + darkStyle;
                         if (html.contains("<head>")) {
                             html = html.replaceFirst("<head>", "<head>" + inject);
                         } else {
@@ -213,6 +213,17 @@ public class MainActivity extends Activity {
                     Log.e(TAG, "Error in injectPolyfills: " + e.getMessage(), e);
                     return null;
                 }
+            }
+
+            private boolean shouldPatchJs(String url) {
+                if (url == null) return false;
+                if (url.contains("/frontend_es5/") && url.endsWith(".js") && !url.contains("core.") && !url.contains("app.")) {
+                    return true;
+                }
+                if (url.contains("/hacsfiles/") && (url.endsWith(".js") || url.contains(".js?"))) {
+                    return true;
+                }
+                return false;
             }
 
             private WebResourceResponse patchJsResource(String url) {
@@ -241,6 +252,9 @@ public class MainActivity extends Activity {
 
                     // Strip BigInt literal suffix (e.g. 0n, 10n) which crashes Chrome 59 V8 tokenizer
                     js = js.replaceAll("(?<=\\d)n(?=\\W|$)", "");
+
+                    // Fix Lit-html array iteration bug in Chrome 59 for button-card
+                    js = js.replace("h<s.length", "s&&h<s.length");
 
                     byte[] bytes = js.getBytes("UTF-8");
                     return new WebResourceResponse("application/javascript", "UTF-8", new ByteArrayInputStream(bytes));
