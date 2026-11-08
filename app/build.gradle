@@ -10,8 +10,8 @@ android {
         applicationId 'me.jxl.breadboard'
         minSdk 21
         targetSdk 22
-        versionCode 3
-        versionName '3.0.0-homeOS'
+        versionCode 4
+        versionName '3.1.0-homeOS'
     }
 
     buildTypes {
