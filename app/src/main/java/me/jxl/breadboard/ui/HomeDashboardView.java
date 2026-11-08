@@ -732,17 +732,17 @@ public class HomeDashboardView extends FrameLayout {
         }
     }
 
-    private class DimmerSliderView extends View {
-        public interface OnValueChangeListener {
-            void onValueChanged(int pct);
-        }
+    public interface DimmerListener {
+        void onValueChanged(int pct);
+    }
 
+    private static class DimmerSliderView extends View {
         private final Paint trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private int pct;
-        private final OnValueChangeListener listener;
+        private final DimmerListener listener;
 
-        DimmerSliderView(Context context, int initialPct, OnValueChangeListener listener) {
+        DimmerSliderView(Context context, int initialPct, DimmerListener listener) {
             super(context);
             this.pct = initialPct;
             this.listener = listener;
