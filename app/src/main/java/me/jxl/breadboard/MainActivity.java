@@ -1,299 +1,138 @@
 package me.jxl.breadboard;
 
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
+import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
-import android.webkit.ConsoleMessage;
-import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import me.jxl.breadboard.net.HassClient;
+import me.jxl.breadboard.ui.AppleMusicView;
+import me.jxl.breadboard.ui.CupBoardDrawer;
+import me.jxl.breadboard.ui.HomeDashboardView;
+import me.jxl.breadboard.ui.SystemStatusBarView;
+import me.jxl.breadboard.ui.Theme;
+import me.jxl.breadboard.ui.faces.WatchFaceGalleryView;
 
 public class MainActivity extends Activity {
-    private static final String TAG = "HomeView";
-    private static final String DASHBOARD_URL = "http://192.168.178.131:8123/apple-homeview/home?kiosk";
+    private static final String TAG = "HomeViewOS";
 
-    private WebView webView;
-    private String userAgent;
-    private String polyfillScript;
-    private String polyfillRawJs;
+    private FrameLayout rootContainer;
+    private FrameLayout contentContainer;
+
+    private SystemStatusBarView statusBar;
+    private HomeDashboardView homeDashboard;
+    private WatchFaceGalleryView watchFaceGallery;
+    private AppleMusicView appleMusicView;
+    private CupBoardDrawer cupBoardDrawer;
+
+    private float density;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Keep screen on 24/7 for smart display
+        // Keep screen on 24/7 for dedicated smart display
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        
-        // Hide Android status bar and navigation bar
         hideSystemUI();
 
-        // Enable Chrome DevTools remote debugging
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            WebView.setWebContentsDebuggingEnabled(true);
-        }
+        density = getResources().getDisplayMetrics().density;
 
-        // Load polyfill scripts from assets
-        loadPolyfills();
+        rootContainer = new FrameLayout(this);
+        rootContainer.setBackgroundColor(Color.BLACK);
 
-        FrameLayout layout = new FrameLayout(this);
-        layout.setBackgroundColor(Color.BLACK);
+        // 1. Content Container (Home, Watchfaces, Music)
+        contentContainer = new FrameLayout(this);
+        FrameLayout.LayoutParams lpContent = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+        // Add top padding for the floating status bar
+        contentContainer.setPadding(0, Theme.dp(56, density), 0, 0);
+        rootContainer.addView(contentContainer, lpContent);
 
-        webView = new WebView(this);
-        layout.addView(webView);
-        setContentView(layout);
+        // Initialize Views
+        homeDashboard = new HomeDashboardView(this);
+        watchFaceGallery = new WatchFaceGalleryView(this);
+        appleMusicView = new AppleMusicView(this);
 
-        WebSettings s = webView.getSettings();
-        s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);
-        s.setDatabaseEnabled(true);
-        s.setCacheMode(WebSettings.LOAD_DEFAULT);
-        s.setAllowFileAccess(true);
-        s.setLoadsImagesAutomatically(true);
-        s.setBlockNetworkImage(false);
-        s.setBlockNetworkLoads(false);
-        s.setUseWideViewPort(true);
-        s.setLoadWithOverviewMode(true);
-        s.setDisplayZoomControls(false);
-        s.setBuiltInZoomControls(false);
-        s.setSupportZoom(false);
+        // Connect Mini Music Widget in WatchFace and Dashboard to Apple Music Tab
+        watchFaceGallery.setOnOpenMusicListener(() -> statusBar.setActiveTab(SystemStatusBarView.TAB_MUSIC));
+        homeDashboard.setOnOpenMusicListener(() -> statusBar.setActiveTab(SystemStatusBarView.TAB_MUSIC));
 
-        // Cache user agent string safely on UI thread
-        userAgent = s.getUserAgentString();
+        // Default to Watch Face Gallery
+        showView(watchFaceGallery);
 
-        webView.setBackgroundColor(Color.BLACK);
-        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        webView.setHorizontalScrollBarEnabled(false);
-        webView.setVerticalScrollBarEnabled(false);
+        // 2. Floating System Status Bar at Top
+        statusBar = new SystemStatusBarView(this);
+        FrameLayout.LayoutParams lpStatus = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+        lpStatus.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+        lpStatus.topMargin = Theme.dp(10, density);
+        lpStatus.leftMargin = Theme.dp(20, density);
+        lpStatus.rightMargin = Theme.dp(20, density);
+        rootContainer.addView(statusBar, lpStatus);
 
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public boolean onConsoleMessage(ConsoleMessage cm) {
-                Log.i("HomeViewJS", "[" + cm.messageLevel() + "] " + cm.message()
-                    + " -- Line " + cm.lineNumber() + " (" + cm.sourceId() + ")");
-                return true;
+        // Handle Status Bar Tab Switching
+        statusBar.setOnTabChangeListener(tabIndex -> {
+            switch (tabIndex) {
+                case SystemStatusBarView.TAB_HOME:
+                    showView(homeDashboard);
+                    break;
+                case SystemStatusBarView.TAB_FACES:
+                    showView(watchFaceGallery);
+                    break;
+                case SystemStatusBarView.TAB_MUSIC:
+                    showView(appleMusicView);
+                    break;
+                case SystemStatusBarView.TAB_CONTROL:
+                    if (cupBoardDrawer != null) {
+                        cupBoardDrawer.toggle();
+                    }
+                    break;
             }
         });
 
-        webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
-                hideSystemUI();
-                if (polyfillRawJs != null) {
-                    view.evaluateJavascript(polyfillRawJs, null);
-                }
-                view.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        view.evaluateJavascript(
-                            "(function() {"
-                            + "  var ha = document.querySelector('home-assistant');"
-                            + "  var defined = window.customElements && customElements.get('home-assistant');"
-                            + "  console.log('[HA_DIAG] customElements.get(\"home-assistant\"):', !!defined);"
-                            + "  console.log('[HA_DIAG] ha element:', !!ha, 'shadow:', !!(ha && ha.shadowRoot));"
-                            + "  if (ha && ha.hass) {"
-                            + "    console.log('[HA_DIAG] ha.hass connected:', ha.hass.connected, 'user:', ha.hass.user ? ha.hass.user.name : 'no user');"
-                            + "  } else {"
-                            + "    console.log('[HA_DIAG] ha.hass is null/undefined');"
-                            + "  }"
-                            + "})();",
-                            null
-                        );
-                    }
-                }, 6000);
-            }
+        // 3. CupBoard Control Center Overlay
+        cupBoardDrawer = new CupBoardDrawer(this);
+        FrameLayout.LayoutParams lpDrawer = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+        rootContainer.addView(cupBoardDrawer, lpDrawer);
 
-            @Override
-            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-                Log.w(TAG, "WebView error: " + description + " (" + errorCode + "), retrying in 5s...");
-                view.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        view.loadUrl(DASHBOARD_URL);
-                    }
-                }, 5000);
-            }
+        setContentView(rootContainer);
 
-            @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-            @Override
-            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                if (request != null && "GET".equalsIgnoreCase(request.getMethod())) {
-                    String url = request.getUrl().toString();
-                    if (request.isForMainFrame() && isDashboardHtmlUrl(url)) {
-                        WebResourceResponse res = injectPolyfills(url);
-                        if (res != null) return res;
-                    } else if (shouldPatchJs(url)) {
-                        WebResourceResponse res = patchJsResource(url);
-                        if (res != null) return res;
-                    }
-                }
-                return super.shouldInterceptRequest(view, request);
-            }
-
-            @Override
-            public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                    if (isDashboardHtmlUrl(url)) {
-                        WebResourceResponse res = injectPolyfills(url);
-                        if (res != null) return res;
-                    } else if (shouldPatchJs(url)) {
-                        WebResourceResponse res = patchJsResource(url);
-                        if (res != null) return res;
-                    }
-                }
-                return super.shouldInterceptRequest(view, url);
-            }
-
-            private boolean isDashboardHtmlUrl(String url) {
-                if (url == null) return false;
-                return url.startsWith("http://192.168.178.131:8123/apple-homeview")
-                    || url.equals("http://192.168.178.131:8123/")
-                    || url.equals(DASHBOARD_URL);
-            }
-
-            private WebResourceResponse injectPolyfills(String url) {
-                try {
-                    HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-                    conn.setRequestMethod("GET");
-                    if (userAgent != null) {
-                        conn.setRequestProperty("User-Agent", userAgent);
-                    }
-                    conn.setConnectTimeout(8000);
-                    conn.setReadTimeout(8000);
-                    int code = conn.getResponseCode();
-                    if (code != 200) {
-                        return null;
-                    }
-
-                    InputStream is = conn.getInputStream();
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
-                    StringBuilder sb = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line).append("\n");
-                    }
-                    reader.close();
-                    String html = sb.toString();
-
-                    // Neutralize dynamic import calls in inline scripts that crash Chrome 59 parser
-                    html = html.replace("import(", "(function(){return Promise.resolve();})(");
-
-                    if (polyfillScript != null) {
-                        String preloadCards = "<script src=\"/hacsfiles/lovelace-layout-card/layout-card.js\"></script>\n"
-                            + "<script src=\"/hacsfiles/button-card/button-card.js\"></script>\n";
-                        String darkStyle = "<style>html,body{background-color:#000000 !important;color:#FFFFFF !important;}"
-                            + ".header,.toolbar,app-header,ha-sidebar,ha-top-app-bar{display:none !important;}</style>";
-                        String inject = polyfillScript + preloadCards + darkStyle;
-                        if (html.contains("<head>")) {
-                            html = html.replaceFirst("<head>", "<head>" + inject);
-                        } else {
-                            html = inject + html;
-                        }
-                    }
-
-                    byte[] bytes = html.getBytes("UTF-8");
-                    return new WebResourceResponse("text/html", "UTF-8", new ByteArrayInputStream(bytes));
-                } catch (Exception e) {
-                    Log.e(TAG, "Error in injectPolyfills: " + e.getMessage(), e);
-                    return null;
-                }
-            }
-
-            private boolean shouldPatchJs(String url) {
-                if (url == null) return false;
-                if (url.contains("/frontend_es5/") && url.endsWith(".js") && !url.contains("core.") && !url.contains("app.")) {
-                    return true;
-                }
-                if (url.contains("/hacsfiles/") && (url.endsWith(".js") || url.contains(".js?"))) {
-                    return true;
-                }
-                return false;
-            }
-
-            private WebResourceResponse patchJsResource(String url) {
-                try {
-                    HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-                    conn.setRequestMethod("GET");
-                    if (userAgent != null) {
-                        conn.setRequestProperty("User-Agent", userAgent);
-                    }
-                    conn.setConnectTimeout(8000);
-                    conn.setReadTimeout(8000);
-                    int code = conn.getResponseCode();
-                    if (code != 200) {
-                        return null;
-                    }
-
-                    InputStream is = conn.getInputStream();
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
-                    StringBuilder sb = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line).append("\n");
-                    }
-                    reader.close();
-                    String js = sb.toString();
-
-                    // Strip BigInt literal suffix (e.g. 0n, 10n) which crashes Chrome 59 V8 tokenizer
-                    js = js.replaceAll("(?<=\\d)n(?=\\W|$)", "");
-
-                    // Fix Lit-html array iteration bug in Chrome 59 for button-card
-                    js = js.replace("h<s.length", "s&&h<s.length");
-
-                    byte[] bytes = js.getBytes("UTF-8");
-                    return new WebResourceResponse("application/javascript", "UTF-8", new ByteArrayInputStream(bytes));
-                } catch (Exception e) {
-                    Log.e(TAG, "Error patching JS chunk: " + e.getMessage(), e);
-                    return null;
-                }
-            }
-        });
-
-        webView.loadUrl(DASHBOARD_URL);
+        // Connect to Home Assistant WebSocket
+        HassClient.getInstance().start();
     }
 
-    private void loadPolyfills() {
-        try {
-            InputStream is = getAssets().open("polyfills.js");
-            BufferedReader r = new BufferedReader(new InputStreamReader(is, "UTF-8"));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = r.readLine()) != null) {
-                sb.append(line).append("\n");
-            }
-            r.close();
-            polyfillRawJs = sb.toString();
-            polyfillScript = "<script>\n" + polyfillRawJs + "\n</script>";
-            Log.i(TAG, "Loaded polyfills.js (" + polyfillRawJs.length() + " chars)");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to load polyfills.js from assets: " + e.getMessage(), e);
-        }
+    private void showView(View target) {
+        contentContainer.removeAllViews();
+        target.setAlpha(0f);
+        contentContainer.addView(target, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        target.animate().alpha(1f).setDuration(220).start();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        hideSystemUI();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        HassClient.getInstance().stop();
     }
 
     private void hideSystemUI() {
         getWindow().getDecorView().setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_FULLSCREEN
-            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         );
     }
 
@@ -307,6 +146,9 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        // Prevent accidental exit of home launcher
+        // If CupBoard is open, close it; otherwise prevent accidental launcher exit
+        if (cupBoardDrawer != null && cupBoardDrawer.isOpen()) {
+            cupBoardDrawer.close();
+        }
     }
 }

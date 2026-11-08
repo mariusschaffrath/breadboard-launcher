@@ -41,7 +41,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete v2.0.0-native --yes 2>/dev/null || true
-          gh release create v2.0.0-native app/build/outputs/apk/release/*.apk \
-            --title "BreadBoard Launcher v2.0.0 Native" \
+          gh release delete v3.0.0-homeOS --yes 2>/dev/null || true
+          gh release create v3.0.0-homeOS app/build/outputs/apk/release/*.apk \
+            --title "HomeView OS v3.0.0 Native" \
             --notes "Native ultra-lightweight Android 5.1 launcher for Apple HomeView Smart Display with zero-login injection and zero bloat."

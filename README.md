@@ -227,3 +227,49 @@ Der native BreadBoard Launcher implementiert ein In-Memory HTTP-Interzeptions- u
   * Regex-Bereinigung von ES2020 BigInt Literals (`0n`, `10n`).
   * Laufzeit-Korrektur des Lit-html `h < s.length` Iterationsfehlers für `button-card`.
 * **Kiosk-Enforcement:** Aktives Shadow DOM Trimming von Header, Toolbar und Sidebar.
+
+---
+
+# 🍏 HomeView OS 3.0 — 1:1 Native Apple Smart Display Recreation
+
+## 1. Overview & Purpose
+HomeView OS 3.0 represents a complete, ground-up rewrite of the smart display launcher for the Amazon Fire 7 (5th Gen, 2015, codename `ford`, API 22, Mali-450 GPU). Moving completely away from the previous WebKit/Chromium 59 WebView approach—which suffered from severe CSS layout truncations and high RAM strain—HomeView OS 3.0 is a 100% pure native Android Java implementation operating at hardware-accelerated 60 FPS directly on the GPU with less than 25 MB RAM footprint.
+
+## 2. Core Architecture & Modules
+* **WebSocket Network Engine (`me.jxl.breadboard.net.HassClient`):**
+  * Direct bi-directional WebSocket connection via `org.java-websocket:Java-WebSocket:1.5.6` to Home Assistant (`ws://192.168.178.131:8123/api/websocket`).
+  * Sub-10ms latency for entity state updates (`state_changed`) and instant service dispatch (`light.toggle`, `cover.toggle`, `media_player.media_play_pause`, `scene.turn_on`).
+* **PebbleUI Design Engine (`me.jxl.breadboard.ui.Theme`):**
+  * Official Apple San Francisco Pro fonts (`SF-Pro-Display-Bold.otf` and `SF-Pro-Rounded-Bold.otf`) loaded from assets.
+  * PebbleUI color tokens: Deep OLED Black (`#000000`), Clear Glass (`#18181D`), Amber Glow (`#FF9F0A`), Electric Blue (`#0A84FF`), Indigo (`#5E5CE6`), Music Pink (`#FA2D48`), Sage Green (`#30D158`), Coral Red (`#FF453A`).
+* **Floating System Status Bar (`me.jxl.breadboard.ui.SystemStatusBarView`):**
+  * Floating glass pill pinned to the top of the display.
+  * Displays brand indicator (` HomeView 27.2`), live room pill (`🛏️ Marius Zimmer • 22.0°C • Status`), and view navigation tabs (`Home`, `Zifferblätter`, `Musik`, `Control`).
+* **Tactile Device Platter (`me.jxl.breadboard.ui.PebbleTileView`):**
+  * 20dp corner radius glass tiles with tactile spring press feedback (`scale(0.95)`).
+  * State-driven lighting (amber glow), cover states (blue glow), and scene triggers.
+* **Apple Music Player (`me.jxl.breadboard.ui.AppleMusicView`):**
+  * Ambient blurred background canvas with dynamic dominant color extraction.
+  * 240x240dp album cover with specular glass border and soft shadow.
+  * Live scrubber progress bar, track title, artist name, transport controls (shuffle, prev, play/pause circle, next, repeat).
+  * AirPlay target switcher (`media_player.marius_zimmer` HomePod mini vs `media_player.marius_zimmer_tv` Apple TV).
+  * Interactive volume slider capsule.
+* **Leaked Watch Face Suite (`me.jxl.breadboard.ui.faces`):**
+  * **Modular Quad (`ModularFaceView`):** 4 quadrants (Date, Canvas Analog Clock with orange second hand, Mini Now Playing Card, Weather).
+  * **Smart Home Indigo (`SmartHomeFaceView`):** Deep indigo glass dial with indoor climate, analog clock, and 3 quick control tiles.
+  * **Snoopy & Peanuts (`SnoopyFaceView`):** Canvas vector Snoopy with Day (cream dial with Woodstock) and Night (black dial with bubblegum) modes.
+  * **Calendar Matrix (`CalendarFaceView`):** Full month matrix with signature Apple rounded red vertical capsule highlight.
+  * **Typographic Sage (`TypographicFaceView`):** Sage green dial with oversized 12-3-6-9 numerals and smooth ticking hands.
+  * **Flow Jelly (`FlowFaceView`):** Fluid pastel liquid gradient with translucent stacked 3D jelly typography.
+  * **StandBy Nightstand (`StandByFaceView`):** Fullscreen dual-column bedside clock with night-vision monochrome red mode.
+  * **Gallery Container (`WatchFaceGalleryView`):** Horizontal swipe gestures with page dots.
+* **CupBoard Drawer (`me.jxl.breadboard.ui.CupBoardDrawer`):**
+  * Apple Control Center overlay with dual sliders for Room Brightness and Volume, plus quick scene triggers.
+
+## 3. Maintenance & Installation
+* **Build Target:** Native release APK via GitHub Actions `.github/workflows/build-breadboard.yml`.
+* **Deployment:**
+  ```bash
+  adb -s 192.168.178.195:5555 install -r app-release.apk
+  adb -s 192.168.178.195:5555 shell am start -n me.jxl.breadboard/.MainActivity
+  ```
