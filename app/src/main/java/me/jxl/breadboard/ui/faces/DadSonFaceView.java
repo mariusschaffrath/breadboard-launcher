@@ -36,6 +36,11 @@ public class DadSonFaceView extends WatchFaceBaseView {
         this.triggerListener = listener;
     }
 
+    @Override
+    public String getFaceName() {
+        return "Dad & Son";
+    }
+
     private void init() {
         setWillNotDraw(false);
         setClickable(true);
