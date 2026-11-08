@@ -62,6 +62,14 @@ public class Theme {
         return roundedBold;
     }
 
+    public static Typeface getRoundedTypeface(Context context) {
+        return getRoundedBold(context);
+    }
+
+    public static Typeface getBoldTypeface(Context context) {
+        return getDisplayBold(context);
+    }
+
     public static GradientDrawable makeGlass(int bgColor, int borderColor, float cornerRadiusDp, float density) {
         GradientDrawable gd = new GradientDrawable();
         gd.setColor(bgColor);
