@@ -28,6 +28,45 @@ public class CupBoardDrawer extends FrameLayout {
         init(context);
     }
 
+    private static class SliderCardView extends LinearLayout {
+        final SeekBar bar;
+        final TextView val;
+
+        SliderCardView(Context context, String label, String icon, int initialVal, float density) {
+            super(context);
+            setOrientation(VERTICAL);
+            setPadding(Theme.dp(16, density), Theme.dp(14, density), Theme.dp(16, density), Theme.dp(14, density));
+            setBackground(Theme.makeGlass(0x33FFFFFF, 0x1AFFFFFF, 18f, density));
+
+            LinearLayout top = new LinearLayout(context);
+            top.setOrientation(HORIZONTAL);
+
+            TextView lbl = new TextView(context);
+            lbl.setText(icon + " " + label);
+            lbl.setTypeface(Theme.getDisplayBold(context));
+            lbl.setTextSize(12f);
+            lbl.setTextColor(Theme.TEXT_MUTED);
+            top.addView(lbl, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+
+            val = new TextView(context);
+            val.setText(initialVal + "%");
+            val.setTypeface(Theme.getRoundedBold(context));
+            val.setTextSize(13f);
+            val.setTextColor(Theme.TEXT_WHITE);
+            top.addView(val);
+
+            addView(top);
+
+            bar = new SeekBar(context);
+            bar.setMax(100);
+            bar.setProgress(initialVal);
+            LayoutParams lpBar = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+            lpBar.topMargin = Theme.dp(10, density);
+            bar.setLayoutParams(lpBar);
+            addView(bar);
+        }
+    }
+
     private void init(Context context) {
         setBackgroundColor(0x99000000); // Scrim background
         setVisibility(View.GONE);
@@ -49,7 +88,7 @@ public class CupBoardDrawer extends FrameLayout {
 
         // Header: Title & Close Button
         LinearLayout header = new LinearLayout(context);
-        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setOrientation(HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView title = new TextView(context);
@@ -57,7 +96,7 @@ public class CupBoardDrawer extends FrameLayout {
         title.setTypeface(Theme.getDisplayBold(context));
         title.setTextSize(20f);
         title.setTextColor(Theme.TEXT_WHITE);
-        header.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        header.addView(title, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
 
         TextView closeBtn = new TextView(context);
         closeBtn.setText("✕");
@@ -66,21 +105,21 @@ public class CupBoardDrawer extends FrameLayout {
         closeBtn.setGravity(Gravity.CENTER);
         closeBtn.setBackground(Theme.makePill(0x22FFFFFF, 0, density));
         closeBtn.setOnClickListener(v -> close());
-        header.addView(closeBtn, new LinearLayout.LayoutParams(Theme.dp(36, density), Theme.dp(36, density)));
+        header.addView(closeBtn, new LayoutParams(Theme.dp(36, density), Theme.dp(36, density)));
 
         drawerContent.addView(header);
 
         // Dual Sliders: Brightness & Volume
         LinearLayout slidersRow = new LinearLayout(context);
-        slidersRow.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams lpSliders = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        slidersRow.setOrientation(HORIZONTAL);
+        LayoutParams lpSliders = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
         lpSliders.topMargin = Theme.dp(24, density);
         slidersRow.setLayoutParams(lpSliders);
 
         // 1. Brightness Card
-        LinearLayout briCard = createSliderCard(context, "HELLIGKEIT", "💡", 100);
-        brightnessBar = (SeekBar) briCard.getTag(1);
-        brightnessValueText = (TextView) briCard.getTag(2);
+        SliderCardView briCard = new SliderCardView(context, "HELLIGKEIT", "💡", 100, density);
+        brightnessBar = briCard.bar;
+        brightnessValueText = briCard.val;
         brightnessBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -94,9 +133,9 @@ public class CupBoardDrawer extends FrameLayout {
         });
 
         // 2. Volume Card
-        LinearLayout volCard = createSliderCard(context, "LAUTSTÄRKE", "🔊", 50);
-        volumeBar = (SeekBar) volCard.getTag(1);
-        volumeValueText = (TextView) volCard.getTag(2);
+        SliderCardView volCard = new SliderCardView(context, "LAUTSTÄRKE", "🔊", 50, density);
+        volumeBar = volCard.bar;
+        volumeValueText = volCard.val;
         volumeBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -109,11 +148,11 @@ public class CupBoardDrawer extends FrameLayout {
             @Override public void onStopTrackingTouch(SeekBar seekBar) {}
         });
 
-        LinearLayout.LayoutParams lpCard1 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        LayoutParams lpCard1 = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
         lpCard1.rightMargin = Theme.dp(8, density);
         briCard.setLayoutParams(lpCard1);
 
-        LinearLayout.LayoutParams lpCard2 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        LayoutParams lpCard2 = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
         lpCard2.leftMargin = Theme.dp(8, density);
         volCard.setLayoutParams(lpCard2);
 
@@ -123,8 +162,8 @@ public class CupBoardDrawer extends FrameLayout {
 
         // Quick Scene Toggles Row
         LinearLayout scenesRow = new LinearLayout(context);
-        scenesRow.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams lpScenes = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        scenesRow.setOrientation(HORIZONTAL);
+        LayoutParams lpScenes = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
         lpScenes.topMargin = Theme.dp(20, density);
         scenesRow.setLayoutParams(lpScenes);
 
@@ -139,49 +178,11 @@ public class CupBoardDrawer extends FrameLayout {
             } catch (Exception e) {}
         });
 
-        scenesRow.addView(btnNight, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        scenesRow.addView(btnOff, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        scenesRow.addView(btnNight, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        scenesRow.addView(btnOff, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
         drawerContent.addView(scenesRow);
 
         addView(drawerContent);
-    }
-
-    private LinearLayout createSliderCard(Context context, String label, String icon, int initialVal) {
-        LinearLayout card = new LinearLayout(context);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(Theme.dp(16, density), Theme.dp(14, density), Theme.dp(16, density), Theme.dp(14, density));
-        card.setBackground(Theme.makeGlass(0x33FFFFFF, 0x1AFFFFFF, 18f, density));
-
-        LinearLayout top = new LinearLayout(context);
-        top.setOrientation(LinearLayout.HORIZONTAL);
-
-        TextView lbl = new TextView(context);
-        lbl.setText(icon + " " + label);
-        lbl.setTypeface(Theme.getDisplayBold(context));
-        lbl.setTextSize(12f);
-        lbl.setTextColor(Theme.TEXT_MUTED);
-        top.addView(lbl, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-
-        TextView val = new TextView(context);
-        val.setText(initialVal + "%");
-        val.setTypeface(Theme.getRoundedBold(context));
-        val.setTextSize(13f);
-        val.setTextColor(Theme.TEXT_WHITE);
-        top.addView(val);
-
-        card.addView(top);
-
-        SeekBar bar = new SeekBar(context);
-        bar.setMax(100);
-        bar.setProgress(initialVal);
-        LinearLayout.LayoutParams lpBar = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lpBar.topMargin = Theme.dp(10, density);
-        bar.setLayoutParams(lpBar);
-        card.addView(bar);
-
-        card.setTag(1, bar);
-        card.setTag(2, val);
-        return card;
     }
 
     private TextView createSceneButton(Context context, String text, int bg, int border) {
@@ -193,7 +194,7 @@ public class CupBoardDrawer extends FrameLayout {
         btn.setGravity(Gravity.CENTER);
         btn.setPadding(Theme.dp(12, density), Theme.dp(12, density), Theme.dp(12, density), Theme.dp(12, density));
         btn.setBackground(Theme.makeGlass(bg, border, 16f, density));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        LayoutParams lp = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
         lp.setMargins(Theme.dp(4, density), 0, Theme.dp(4, density), 0);
         btn.setLayoutParams(lp);
         return btn;
